@@ -108,6 +108,20 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 .cb pre{margin:0;padding:12px 14px;overflow:auto;font:13px/1.5 var(--mono)}
 .comp{display:flex;gap:8px;align-items:flex-end;padding:10px 18px 14px;border-top:1px solid var(--line)}
 .comp textarea{flex:1;min-height:46px;resize:none;border:1px solid var(--line);border-radius:12px;background:var(--surf);color:var(--text);font:inherit;padding:11px 14px}
+.pkgt{min-height:70px;font-family:var(--mono);font-size:13px}
+.mt8{margin-top:8px}
+.pk{border:1px solid var(--line);border-radius:12px;background:var(--surf);margin-top:14px;overflow:hidden}
+.pkh{display:flex;align-items:center;gap:8px;padding:12px 14px;flex-wrap:wrap}
+.pkg{padding:0 14px 10px}
+.tl{border-top:1px solid var(--line)}
+.tl details{border-bottom:1px solid var(--line)}.tl details:last-child{border-bottom:0}
+.tl summary{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;list-style:none}
+.tl summary::-webkit-details-marker{display:none}
+.tt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sti{width:18px;text-align:center;font-weight:700;flex:none}
+.s-done{color:var(--ok)}.s-failed{color:var(--err)}.s-running{color:var(--acc)}.s-pending,.s-skipped{color:var(--muted)}
+.td{padding:0 14px 12px 42px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.tlog{font:12px/1.5 var(--mono);white-space:pre-wrap;word-break:break-word;background:var(--code);border:1px solid var(--line);border-radius:8px;padding:8px 10px;align-self:stretch}
 @media (max-width:900px){.split{grid-template-columns:1fr;grid-template-rows:1fr 1fr}.ed{border-right:0;border-bottom:1px solid var(--line)}}
 @media (max-width:760px){.side{position:fixed;top:0;bottom:0;left:0;z-index:20;transform:translateX(-100%);transition:transform .2s;padding-top:calc(14px + env(safe-area-inset-top,0px));padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}.side.open{transform:none}.scrim.open{display:block}.menu{display:inline-block}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -124,6 +138,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
       <button class="link" id="bkExport">Скачать резервную копию</button>
       <button class="link" id="bkImport">Восстановить из копии</button>
       <input type="file" id="bkFile" accept=".json,application/json" hidden>
+      <input type="file" id="pkgInput" accept=".json,.txt,application/json,text/plain" hidden>
       <div class="ver">Версия <span id="ver"></span></div>
     </div>
   </aside>
@@ -140,7 +155,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 </div>
 <div class="toast" id="toast" role="status"></div>
 <script>
-const VERSION='0.2.0';
+const VERSION='0.3.0';
 const $=s=>document.querySelector(s);
 const V=()=>$('#view');
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -162,7 +177,7 @@ const fmt=t=>new Date(t).toLocaleString('ru-RU',{day:'numeric',month:'short',hou
 
 const DEF_CODE=()=>({lang:'js',name:'main.js',text:SAMPLE.js,projectId:''});
 let S={projects:[],artifacts:[],chats:[],settings:{model:''},code:DEF_CODE()};
-const UI={view:'code',projectId:null,artifactId:null,artTab:'preview',log:[],running:false,tab:'console',lastHtml:'',chatId:null,draft:'',gen:false};
+const UI={view:'code',projectId:null,artifactId:null,artTab:'preview',log:[],running:false,tab:'console',lastHtml:'',chatId:null,draft:'',gen:false,pk:null,wl:null,openT:new Set(),pkgDraft:'',pkgNew:false};
 function normalize(d){d=d||{};return{projects:Array.isArray(d.projects)?d.projects:[],artifacts:Array.isArray(d.artifacts)?d.artifacts:[],code:d.code&&typeof d.code.text==='string'?d.code:DEF_CODE(),chats:Array.isArray(d.chats)?d.chats:[],settings:d.settings&&typeof d.settings==='object'?d.settings:{model:''}}}
 
 /* Хранилище: IndexedDB */
@@ -249,12 +264,12 @@ const curChat=()=>S.chats.find(c=>c.id===UI.chatId);
 function newChat(){const t=Date.now(),c={id:uid(),title:'Новый чат',msgs:[],created:t,updated:t};S.chats.unshift(c);UI.chatId=c.id;UI.draft='';save();return c}
 function md(t,i){const P=t.split('```');let h='',k=0;
   P.forEach((p,j)=>{
-    if(j%2===0){const s=p.replace(/^\n+|\n+$/g,'');if(s)h+='<div class="tx">'+esc(s).replace(/`([^`\n]+)`/g,'<code>$1</code>')+'</div>'}
+    if(j%2===0){const s=p.replace(/^\n+|\n+$/g,'');if(s)h+='<div class="tx">'+esc(s).replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/^#{1,4} (.+)$/gm,'<b>$1</b>')+'</div>'}
     else{const nl=p.indexOf('\n'),lang=nl>=0?p.slice(0,nl).trim():'',code=nl>=0?p.slice(nl+1):'',open=j===P.length-1;
       h+=`<div class="cb"><div class="cbh"><span>${esc(lang||'код')}</span>${open?'':`<button class="tab" data-act="cbEdit" data-id="${i}:${k}">В редактор</button><button class="tab" data-act="cbRun" data-id="${i}:${k}">Запустить</button>`}</div><pre>${esc(code.replace(/\n$/,''))}</pre></div>`;if(!open)k++}});
   return h}
 function blocksOf(t){const P=t.split('```'),r=[];for(let j=1;j<P.length-1;j+=2){const p=P[j],nl=p.indexOf('\n');r.push({lang:nl>=0?p.slice(0,nl).trim().toLowerCase():'',code:nl>=0?p.slice(nl+1).replace(/\n$/,''):p})}return r}
-const msgHTML=(m,i,last)=>m.role==='user'?'<div class="mu">'+esc(m.content)+'</div>':`<div class="ma"${last?' id="lastMsg"':''}>${m.content?md(m.content,i):'<span class="muted">Думаю…</span>'}</div>`;
+const msgHTML=(m,i,last)=>m.role==='user'?'<div class="mu">'+md(m.content,i)+'</div>':`<div class="ma"${last?' id="lastMsg"':''}>${m.content?md(m.content,i):'<span class="muted">Думаю…</span>'}</div>`;
 function vChats(){
   LLM.init();
   const c=UI.chatId&&curChat();
@@ -275,14 +290,14 @@ function ctx(c){const h=c.msgs.slice(0,-1).map(m=>({role:m.role,content:m.conten
   while(i>0&&(i===h.length||n+h[i-1].content.length<=6000)){n+=h[i-1].content.length;i--}
   const r=h.slice(i);while(r.length>1&&r[0].role!=='user')r.shift();return[{role:'system',content:SYS},...r]}
 async function send(c,text){
-  if(UI.gen)return;
+  if(UI.gen)return;if(UI.pk){toast('Сейчас выполняется пакет задач');return}
   c.msgs.push({role:'user',content:text});const m={role:'assistant',content:''};c.msgs.push(m);
   if(c.title==='Новый чат')c.title=text.replace(/\s+/g,' ').slice(0,48);
   c.updated=Date.now();UI.gen=true;save();if(UI.view==='chats'&&UI.chatId===c.id)render();
   let raf=0;const upd=()=>{raf=0;const el=$('#lastMsg');if(el&&UI.view==='chats'&&UI.chatId===c.id){el.innerHTML=md(m.content,c.msgs.length-1);const ms=$('#msgs');if(ms&&ms.scrollHeight-ms.scrollTop-ms.clientHeight<160)ms.scrollTop=ms.scrollHeight}};
-  try{const st=await LLM.engine.chat.completions.create({messages:ctx(c),stream:true,temperature:0.3,max_tokens:1200});
+  try{try{await LLM.engine.resetChat()}catch(e){}const st=await LLM.engine.chat.completions.create({messages:ctx(c),stream:true,temperature:0.3,max_tokens:1200});
     for await(const ch of st){const d=ch.choices&&ch.choices[0]&&ch.choices[0].delta&&ch.choices[0].delta.content||'';if(d){m.content+=d;if(!raf)raf=requestAnimationFrame(upd)}}}
-  catch(e){m.content+='\n\n[Ошибка: '+(e&&e.message||e)+']'}
+  catch(e){const em=String(e&&e.message||e);if(!m.content.trim()||!/disposed/i.test(em))m.content+='\n\n[Ошибка: '+em+']'}
   if(!m.content.trim())m.content='[Пустой ответ]';
   UI.gen=false;c.updated=Date.now();save();if(UI.view==='chats'&&UI.chatId===c.id)render()}
 function blockToEditor(id,runIt){
@@ -299,7 +314,7 @@ function askAI(){
 /* Проекты */
 function vProjects(){
   const p=UI.projectId&&proj(UI.projectId);
-  if(!p){UI.projectId=null;header('Проекты','<button class="btn pri" data-act="newProj">Новый проект</button>');
+  if(!p){UI.projectId=null;header('Проекты','<button class="btn" data-act="pkgNew">Из пакета</button><button class="btn pri" data-act="newProj">Новый проект</button>');
     const list=S.projects.slice().sort((a,b)=>b.updated-a.updated);
     V().innerHTML=list.length?`<div class="list">${list.map(p=>`<button class="row" data-proj="${p.id}"><div class="rmain"><div class="rt">${esc(p.name)}</div><div class="rs">${p.files.length} ${plural(p.files.length,'файл','файла','файлов')}, изменён ${fmt(p.updated)}</div></div></button>`).join('')}</div>`
       :empty('Проектов пока нет','Проект хранит файлы, описание и, позже, пакеты задач от Claude.','<button class="btn pri" data-act="newProj">Создать проект</button>');
@@ -310,10 +325,11 @@ function vProjects(){
     <textarea id="pdesc" class="desc" placeholder="Цель проекта, заметки">${esc(p.desc||'')}</textarea>
     <div class="hrow"><h2>Файлы</h2><button class="btn" data-act="newFile">Новый файл</button></div>
     <div class="list">${p.files.length?p.files.map(f=>`<div class="row"><button class="rmain" data-act="openFile" data-id="${f.id}"><div class="rt">${esc(f.name)}</div><div class="rs">${LANGN[langOf(f.name)]}, ${f.text.split('\n').length} строк</div></button><button class="icon-btn" data-act="delFile" data-id="${f.id}" aria-label="Удалить файл">✕</button></div>`).join(''):'<div class="muted pad">Файлов пока нет</div>'}</div>
-    <div class="hrow"><h2>Пакеты задач</h2></div>
-    <div class="note">Загрузка пакетов от Claude и выполнение задач по очереди появятся на этапе 3.</div>
+    ${pkgSection(p)}
   </div>`;
   $('#pdesc').addEventListener('input',e=>{p.desc=e.target.value;touch(p)});
+  document.querySelectorAll('details[data-t]').forEach(d=>d.addEventListener('toggle',()=>{if(d.open)UI.openT.add(d.dataset.t);else UI.openT.delete(d.dataset.t)}));
+  const pt=$('#pkgText');pt.value=UI.pkgDraft;pt.addEventListener('input',()=>{UI.pkgDraft=pt.value});
 }
 function openFile(p,f){if(!f)return;S.code={lang:langOf(f.name),name:f.name,text:f.text,projectId:p.id};save();go('code')}
 
@@ -325,38 +341,38 @@ onmessage=async e=>{try{const AF=Object.getPrototypeOf(async function(){}).const
 const PY_URL='https://cdn.jsdelivr.net/pyodide/v0.26.4/full/';
 const PY_WORKER=`importScripts('${PY_URL}pyodide.js');let py;
 const ready=loadPyodide({indexURL:'${PY_URL}',stdout:s=>postMessage({t:'out',s:s}),stderr:s=>postMessage({t:'err',s:s})}).then(p=>{py=p;postMessage({t:'ready'})},e=>postMessage({t:'fatal',s:String(e)}));
-onmessage=async e=>{await ready;if(!py){postMessage({t:'done'});return}try{await py.loadPackagesFromImports(e.data);const r=await py.runPythonAsync(e.data);if(r!==undefined&&r!==null)postMessage({t:'ret',s:String(r)})}catch(err){postMessage({t:'err',s:String(err&&err.message||err)})}postMessage({t:'done'})};`;
+onmessage=async e=>{await ready;if(!py){postMessage({t:'done'});return}const c=typeof e.data==='string'?e.data:e.data.code,g=e.data&&e.data.fresh?py.globals.get('dict')():null;try{await py.loadPackagesFromImports(c);const r=await py.runPythonAsync(c,g?{globals:g}:undefined);if(r!==undefined&&r!==null)postMessage({t:'ret',s:String(r)})}catch(err){postMessage({t:'err',s:String(err&&err.message||err)})}postMessage({t:'done'})};`;
 const blobURL=s=>URL.createObjectURL(new Blob([s],{type:'text/javascript'}));
 
 function out(t,s){UI.log.push({t,s:String(s)});if(UI.log.length>1000)UI.log.shift();const c=$('#console');if(c){const d=document.createElement('div');d.className='ln '+t;d.textContent=String(s);c.appendChild(d);c.scrollTop=c.scrollHeight}}
 function renderConsole(){const c=$('#console');if(!c)return;c.innerHTML='';UI.log.forEach(l=>{const d=document.createElement('div');d.className='ln '+l.t;d.textContent=l.s;c.appendChild(d)});c.scrollTop=c.scrollHeight}
 
 let jsW=null;
-function runJS(code){return new Promise(res=>{
+function runJS(code,sink=out){return new Promise(res=>{
   jsW=new Worker(blobURL(JS_WORKER));const w=jsW;
   const fin=()=>{clearTimeout(t);w.terminate();if(jsW===w)jsW=null;res()};
-  const t=setTimeout(()=>{out('err','Остановлено: выполнение дольше 10 секунд');fin()},10000);
-  w.onmessage=e=>{if(e.data.t==='done')fin();else out(e.data.t,e.data.s)};
-  w.onerror=e=>{out('err',e.message||'Ошибка выполнения');fin()};
+  const t=setTimeout(()=>{sink('err','Остановлено: выполнение дольше 10 секунд');fin()},10000);
+  w.onmessage=e=>{if(e.data.t==='done')fin();else sink(e.data.t,e.data.s)};
+  w.onerror=e=>{sink('err',e.message||'Ошибка выполнения');fin()};
   w._fin=fin;w.postMessage(code)})}
 
-let pyW=null,pyReady=null,pyDone=null;
+let pyW=null,pyReady=null,pyDone=null,pySink=null;
 function ensurePy(){
   if(pyReady)return pyReady;
   out('info','Загружаю Python. Это нужно только при первом запуске, около 10 МБ.');
   pyW=new Worker(blobURL(PY_WORKER));
   pyReady=new Promise((res,rej)=>{
-    pyW.onmessage=e=>{const d=e.data;if(d.t==='ready'){out('info','Python готов');res()}else if(d.t==='fatal')rej(d.s);else if(d.t==='done'){if(pyDone)pyDone()}else out(d.t,d.s)};
+    pyW.onmessage=e=>{const d=e.data;if(d.t==='ready'){out('info','Python готов');res()}else if(d.t==='fatal')rej(d.s);else if(d.t==='done'){if(pyDone)pyDone()}else(pySink||out)(d.t,d.s)};
     pyW.onerror=e=>rej(e.message||'ошибка загрузки')});
   pyReady.catch(()=>{if(pyW)pyW.terminate();pyW=null;pyReady=null});
   return pyReady}
 function killPy(){if(pyW)pyW.terminate();pyW=null;pyReady=null;if(pyDone){const d=pyDone;pyDone=null;d()}}
-async function runPy(code){
-  try{await ensurePy()}catch(e){out('err','Не удалось загрузить Python: '+e+'. При первом запуске нужен интернет.');return}
+async function runPy(code,sink=out,fresh=false){
+  try{await ensurePy()}catch(e){sink('err','Не удалось загрузить Python: '+e+'. При первом запуске нужен интернет.');return}
   return new Promise(res=>{
-    const t=setTimeout(()=>{out('err','Остановлено: дольше 30 секунд. Python будет перезагружен.');killPy()},30000);
-    pyDone=()=>{clearTimeout(t);pyDone=null;res()};
-    pyW.postMessage(code)})}
+    const t=setTimeout(()=>{sink('err','Остановлено: дольше 30 секунд. Python будет перезагружен.');killPy()},30000);
+    pySink=sink;pyDone=()=>{clearTimeout(t);pyDone=null;pySink=null;res()};
+    pyW.postMessage(fresh?{code,fresh:true}:code)})}
 
 const HOOK=`<script>(function(){var f=function(a){return Array.prototype.map.call(a,function(x){if(typeof x==='string')return x;try{return JSON.stringify(x)}catch(e){return String(x)}}).join(' ')};var p=function(t,a){parent.postMessage({lk:1,t:t,s:f(a)},'*')};var o=console.log;console.log=console.info=function(){p('out',arguments);o.apply(console,arguments)};console.warn=function(){p('warn',arguments)};console.error=function(){p('err',arguments)};addEventListener('error',function(e){p('err',[e.message+' (строка '+e.lineno+')'])})})()<\/script>`;
 const withHook=h=>/<head[^>]*>/i.test(h)?h.replace(/<head[^>]*>/i,m=>m+HOOK):HOOK+h;
@@ -458,6 +474,14 @@ function act(a,id){
   case'cbEdit':blockToEditor(id,false);break;
   case'cbRun':blockToEditor(id,true);break;
   case'askAI':askAI();break;
+  case'pkgNew':UI.pkgNew=true;$('#pkgInput').click();break;
+  case'pkgFile':UI.pkgNew=false;$('#pkgInput').click();break;
+  case'pkgPaste':{const t=UI.pkgDraft||'';if(!t.trim())return toast('Вставьте текст пакета');try{parsePackage(t);UI.pkgDraft='';addPackage(t,false)}catch(err){toast('Пакет не принят: '+err.message)}break}
+  case'pkgRun':{const k=(p.packages||[]).find(x=>x.id===id);if(k)runPackage(p,k);break}
+  case'pkgStop':if(UI.pk){UI.pk.stop=true;if(LLM.engine)LLM.engine.interruptGenerate();stopRun();toast('Останавливаю')}break;
+  case'pkgReset':{const k=(p.packages||[]).find(x=>x.id===id);if(!k||(UI.pk&&UI.pk.id===k.id))return;if(confirm('Сбросить статусы задач пакета? Файлы останутся.')){k.tasks.forEach(t=>{t.status='pending';t.log=[];t.stage='';t.lastError=''});touch(p);render()}break}
+  case'pkgDel':{const k=(p.packages||[]).find(x=>x.id===id);if(!k)return;if(UI.pk&&UI.pk.id===k.id)return toast('Сначала остановите выполнение');if(confirm('Удалить пакет «'+k.name+'»? Файлы проекта останутся.')){p.packages=p.packages.filter(x=>x!==k);touch(p);render()}break}
+  case'taskOpen':{const c=id.indexOf(':'),k=(p.packages||[]).find(x=>x.id===id.slice(0,c)),t=k&&k.tasks.find(x=>x.id===id.slice(c+1)),f=t&&p.files.find(f=>f.name===t.file);if(f)openFile(p,f);break}
   case'openArt':UI.artifactId=id;UI.artTab='preview';render();break;
   case'artTab':UI.artTab=id;render();break;
   case'artCode':S.code={lang:r.lang,name:r.fileName,text:r.text,projectId:''};UI.lastHtml='';save();go('code');break;
@@ -470,6 +494,104 @@ document.addEventListener('click',e=>{
   if(b.dataset.go)go(b.dataset.go);
   else if(b.dataset.proj){UI.projectId=b.dataset.proj;UI.view='projects';closeDrawer();render()}
   else act(b.dataset.act,b.dataset.id)});
+
+/* Пакеты задач и оркестратор */
+const MAPL={js:'js',javascript:'js',node:'js',py:'py',python:'py',python3:'py',html:'html',htm:'html'};
+const LN={js:'javascript',py:'python',html:'html'};
+const STI={pending:'○',running:'◐',done:'✓',failed:'✕',skipped:'–'};
+const STN={pending:'ожидает',done:'готово',failed:'не прошло проверки',skipped:'пропущено'};
+function topo(ts){const r=[],st={};const v=t=>{if(st[t.id]===2)return;if(st[t.id]===1)throw new Error('циклическая зависимость у задачи '+t.id);st[t.id]=1;t.depends.forEach(d=>{const x=ts.find(y=>y.id===d);if(x)v(x)});st[t.id]=2;r.push(t)};ts.forEach(v);return r}
+function parsePackage(txt){
+  let s=String(txt||'').trim();const m=s.match(/```(?:json)?\s*([\s\S]*?)```/);if(m)s=m[1];
+  const a=s.indexOf('{'),b=s.lastIndexOf('}');if(a<0||b<0)throw new Error('не найден JSON');
+  const j=JSON.parse(s.slice(a,b+1));
+  if(!Array.isArray(j.tasks)||!j.tasks.length)throw new Error('нет списка задач tasks');
+  const ids=new Set();
+  const tasks=j.tasks.map((t,i)=>{const id=String(t.id||'t'+(i+1));if(ids.has(id))throw new Error('повтор id '+id);ids.add(id);
+    const lang=MAPL[String(t.lang||'').toLowerCase()]||(t.file?langOf(t.file):'js');
+    if(!t.task)throw new Error('у задачи '+id+' нет поля task');
+    return{id,title:String(t.title||''),role:String(t.role||'coder'),lang,file:String(t.file||id+'.'+EXT[lang]),depends:Array.isArray(t.depends)?t.depends.map(String):[],task:String(t.task),tests:Array.isArray(t.tests)?t.tests.map(x=>typeof x==='string'?x:String(x.code||x)):[],status:'pending',log:[],stage:'',lastError:''}});
+  tasks.forEach(t=>t.depends.forEach(d=>{if(!ids.has(d))throw new Error('задача '+t.id+' зависит от несуществующей '+d)}));
+  topo(tasks);
+  return{id:uid(),name:String(j.project||j.name||'Пакет задач'),goal:String(j.goal||''),context:String(j.context||''),tasks,created:Date.now()}}
+function addPackage(txt,asNew){
+  const k=parsePackage(txt);let p=!asNew&&UI.projectId&&proj(UI.projectId);if(!p)p=newProject(k.name);
+  (p.packages=p.packages||[]).push(k);touch(p);UI.projectId=p.id;UI.view='projects';render();
+  toast('Пакет «'+k.name+'» добавлен: '+k.tasks.length+' '+plural(k.tasks.length,'задача','задачи','задач'))}
+function pkgSection(p){const ks=p.packages||[];
+  return`<div class="hrow"><h2>Пакеты задач</h2><button class="btn" data-act="pkgFile">Загрузить из файла</button></div>
+  <textarea id="pkgText" class="desc pkgt" placeholder="Или вставьте сюда пакет задач, который подготовил Claude" spellcheck="false" autocapitalize="off" autocorrect="off" aria-label="Текст пакета задач"></textarea>
+  <div class="mpr mt8"><button class="btn" data-act="pkgPaste">Добавить пакет</button></div>${ks.map(k=>pkgCard(p,k)).join('')}`}
+function pkgCard(p,k){
+  const run=UI.pk&&UI.pk.id===k.id,done=k.tasks.filter(t=>t.status==='done').length,fail=k.tasks.filter(t=>t.status==='failed').length;
+  return`<div class="pk"><div class="pkh"><div class="rmain"><div class="rt">${esc(k.name)}</div><div class="rs">Готово ${done} из ${k.tasks.length}${fail?', с ошибками '+fail:''}</div></div>
+  ${run?'<button class="btn pri danger" data-act="pkgStop">Остановить</button>':`<button class="btn pri" data-act="pkgRun" data-id="${k.id}">${done?'Продолжить':'Выполнить'}</button><button class="btn" data-act="pkgReset" data-id="${k.id}">Сбросить</button><button class="icon-btn" data-act="pkgDel" data-id="${k.id}" aria-label="Удалить пакет">✕</button>`}</div>
+  ${k.goal?'<div class="muted small pkg">'+esc(k.goal)+'</div>':''}
+  <div class="tl">${k.tasks.map(t=>{const key=k.id+':'+t.id;return`<details data-t="${key}" ${UI.openT.has(key)?'open':''}><summary><span class="sti s-${t.status}">${STI[t.status]||'○'}</span><span class="tt"><b>${esc(t.id)}</b> ${esc(t.title||t.task.slice(0,60))}</span><span class="muted small">${t.status==='running'?esc(t.stage||'в работе'):STN[t.status]||''}</span></summary>
+    <div class="td"><div class="muted small">${esc(t.file)}, ${LANGN[t.lang]}${t.depends.length?', зависит от '+esc(t.depends.join(', ')):''}</div><div class="tx">${esc(t.task)}</div>${t.log.length?'<div class="tlog">'+esc(t.log.join('\n'))+'</div>':''}${t.lastError&&t.status==='failed'?'<div class="tlog errt">'+esc(t.lastError)+'</div>':''}${p.files.some(f=>f.name===t.file)?`<button class="btn" data-act="taskOpen" data-id="${key}">Открыть файл</button>`:''}</div></details>`}).join('')}</div></div>`}
+const rp=p=>{save();if(UI.view==='projects'&&UI.projectId===p.id)render()};
+function depCode(p,k,t){const seen=new Set(),out=[];const walk=id=>{if(seen.has(id))return;seen.add(id);const x=k.tasks.find(y=>y.id===id);if(!x)return;x.depends.forEach(walk);if(x.lang===t.lang&&x.status==='done'){const f=p.files.find(f=>f.name===x.file);if(f)out.push(f.text)}};t.depends.forEach(walk);return out.join('\n\n')}
+function brief(k,t,deps){return(k.goal?'Цель проекта: '+k.goal+'\n':'')+(k.context?'Общие правила:\n'+k.context.slice(0,1000)+'\n':'')+(deps?'\nУже написанный код:\n```'+LN[t.lang]+'\n'+deps.slice(-1500)+'\n```\n':'')+'\nЗадача '+t.id+(t.title?' «'+t.title+'»':'')+', файл '+t.file+':\n'+t.task+(t.tests.length?'\n\nКод должен пройти проверки:\n'+t.tests.join('\n').slice(0,800):'')}
+const coderMsgs=(k,t,deps)=>[{role:'system',content:'Ты Кодер в команде. Пишешь ровно один файл по задаче. Ответ: только один блок кода ```'+LN[t.lang]+' без пояснений до и после. Не добавляй примеры вызова и тесты. Не используй input(), сеть и файлы.'+(deps?' Уже написанный код подключён автоматически: используй его функции и не переписывай их.':'')},{role:'user',content:brief(k,t,deps)}];
+const fixerMsgs=(k,t,deps,code,res)=>[{role:'system',content:'Ты Исправитель в команде. Код не прошёл проверки. Найди причину и верни исправленный файл целиком: только один блок кода ```'+LN[t.lang]+' без пояснений.'+(deps?' Уже написанный код подключён автоматически, не переписывай его.':'')},{role:'user',content:brief(k,t,deps)+'\n\nТекущий код:\n```'+LN[t.lang]+'\n'+code.slice(0,2500)+'\n```\n\nРезультат проверки:\n'+((res&&res.detail)||'неизвестная ошибка').slice(0,1000)}];
+async function llmAsk(messages){
+  try{await LLM.engine.resetChat()}catch(e){}
+  let o='';
+  try{const st=await LLM.engine.chat.completions.create({messages,stream:true,temperature:0.2,max_tokens:1500});
+    for await(const ch of st){o+=ch.choices&&ch.choices[0]&&ch.choices[0].delta&&ch.choices[0].delta.content||'';if(UI.pk&&UI.pk.stop)LLM.engine.interruptGenerate()}}
+  catch(e){if(!o)throw e}
+  return o}
+function pickCode(a,L){const b=blocksOf(a),m=b.find(x=>MAPL[x.lang]===L)||b[0];if(m)return m.code.trim();const P=a.split('```');if(P.length===2)return P[1].replace(/^\w*\n/,'').trim();return''}
+const jsHarness=T=>'\n;{const __t='+JSON.stringify(T)+',__r=[];const assert=(c,m)=>{if(!c)throw new Error(m||"проверка не пройдена")};for(let __i=0;__i<__t.length;__i++){try{let __v=eval(__t[__i]);if(__v&&typeof __v.then==="function")__v=await __v;if(__v===false)throw new Error("вернуло false");__r.push({i:__i,ok:1})}catch(__e){__r.push({i:__i,ok:0,e:String(__e&&__e.message||__e)})}}console.log("__LKT__"+JSON.stringify(__r))}';
+const pyHarness=T=>'\nimport json as __j\n__t=__j.loads('+JSON.stringify(JSON.stringify(T))+')\n__r=[]\nfor __i,__s in enumerate(__t):\n    try:\n        try:\n            __v=eval(__s)\n        except SyntaxError:\n            exec(__s)\n            __v=None\n        if __v is False:\n            raise AssertionError("вернуло False")\n        __r.append({"i":__i,"ok":1})\n    except Exception as __e:\n        __r.append({"i":__i,"ok":0,"e":repr(__e)})\nprint("__LKT__"+__j.dumps(__r))\n';
+async function testCode(t,code,deps){
+  if(t.lang==='html'){const ok=/<[a-z]/i.test(code);return{ok,summary:ok?'HTML получен, проверьте его в просмотре':'нет HTML-разметки',detail:ok?'':'В ответе нет HTML-разметки'}}
+  const lines=[],sink=(ty,s)=>lines.push({t:ty,s:String(s)});
+  const src=(deps?deps+'\n':'')+code+'\n'+(t.lang==='py'?pyHarness(t.tests):jsHarness(t.tests));
+  if(t.lang==='py')await runPy(src,sink,true);else await runJS(src,sink);
+  const mk=lines.find(l=>l.s.startsWith('__LKT__')),errs=lines.filter(l=>l.t==='err').map(l=>l.s).join('\n');
+  if(!mk)return{ok:false,summary:'ошибка выполнения',detail:(errs||'код не выполнился до проверок').slice(0,1000)};
+  let r;try{r=JSON.parse(mk.s.slice(7))}catch(e){return{ok:false,summary:'ошибка проверки',detail:'не удалось прочитать результат'}}
+  const pass=r.filter(x=>x.ok).length,fails=r.filter(x=>!x.ok).map(x=>'Проверка «'+t.tests[x.i]+'»: '+x.e).join('\n');
+  return{ok:pass===r.length,summary:r.length?'пройдено '+pass+' из '+r.length:'код выполнился без ошибок',detail:(fails||errs).slice(0,1000)}}
+function upsertFile(p,name,text){const f=p.files.find(f=>f.name===name);if(f)f.text=text;else p.files.push({id:uid(),name,text})}
+async function runTask(p,k,t){
+  t.status='running';t.log=[];t.lastError='';
+  const deps=depCode(p,k,t);let code='',res=null;
+  for(let a=1;a<=3;a++){
+    if(UI.pk.stop)break;
+    const who=a===1?'Кодер':'Исправитель';t.stage=a===1?'Кодер пишет код':'Исправитель, попытка '+(a-1);rp(p);
+    let ans;try{ans=await llmAsk(a===1||!code?coderMsgs(k,t,deps):fixerMsgs(k,t,deps,code,res))}catch(e){t.log.push('Ошибка модели: '+(e&&e.message||e));res={ok:false,detail:'Ошибка модели'};break}
+    if(UI.pk.stop)break;
+    const c=pickCode(ans,t.lang);
+    if(!c){t.log.push(who+': в ответе нет кода');res={ok:false,detail:'Ответ модели не содержит блока кода'};continue}
+    code=c;t.log.push(who+': '+code.split('\n').length+' строк');
+    t.stage='Тестировщик проверяет';rp(p);
+    res=await testCode(t,code,deps);t.log.push('Тестировщик: '+res.summary);
+    if(res.ok)break}
+  if(code)upsertFile(p,t.file,code);
+  if(UI.pk.stop&&!(res&&res.ok)){t.status='pending';t.stage='';t.log.push('Остановлено');rp(p);return}
+  t.status=res&&res.ok?'done':'failed';t.stage='';if(t.status==='failed')t.lastError=res?res.detail:'';touch(p);rp(p)}
+async function runPackage(p,k){
+  if(UI.pk)return toast('Уже выполняется другой пакет');
+  if(UI.gen)return toast('Дождитесь окончания ответа в чате');
+  if(LLM.state!=='ready'){toast('Сначала запустите модель в разделе «Чаты»');return}
+  let order;try{order=topo(k.tasks)}catch(e){return toast('Ошибка пакета: '+e.message)}
+  UI.pk={id:k.id,stop:false};
+  try{if(navigator.wakeLock)UI.wl=await navigator.wakeLock.request('screen')}catch(e){}
+  k.tasks.forEach(t=>{if(t.status!=='done'){t.status='pending';t.stage=''}});rp(p);
+  for(const t of order){
+    if(UI.pk.stop)break;if(t.status==='done')continue;
+    const bad=t.depends.find(d=>{const x=k.tasks.find(y=>y.id===d);return!x||x.status!=='done'});
+    if(bad){t.status='skipped';t.log=['Пропущено: зависимость '+bad+' не выполнена'];rp(p);continue}
+    await runTask(p,k,t)}
+  const stopped=UI.pk.stop;UI.pk=null;
+  try{if(UI.wl)await UI.wl.release()}catch(e){}UI.wl=null;
+  touch(p);rp(p);
+  const done=k.tasks.filter(t=>t.status==='done').length;
+  toast(stopped?'Выполнение остановлено':'Пакет выполнен: готово '+done+' из '+k.tasks.length)}
+
+$('#pkgInput').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{addPackage(await f.text(),UI.pkgNew)}catch(err){toast('Пакет не принят: '+err.message)}UI.pkgNew=false};
 
 /* Резервная копия */
 $('#bkExport').onclick=()=>{download('local-coder-backup-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({app:'local-coder',version:VERSION,data:S},null,1),'application/json')};
@@ -487,6 +609,7 @@ $('#bkFile').onchange=async e=>{
   await DB.open();
   if(!DB.db)toast('Хранилище браузера недоступно: данные не сохранятся');
   const d=await DB.get('state');if(d)S=normalize(d);
+  S.projects.forEach(p=>(p.packages||[]).forEach(k=>k.tasks.forEach(t=>{if(t.status==='running'){t.status='pending';t.stage=''}})));
   try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
   render()})();
 </script>
