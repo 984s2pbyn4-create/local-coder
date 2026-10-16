@@ -155,7 +155,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 </div>
 <div class="toast" id="toast" role="status"></div>
 <script>
-const VERSION='0.3.2';
+const VERSION='0.4.0';
 const $=s=>document.querySelector(s);
 const V=()=>$('#view');
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -368,11 +368,11 @@ let pyW=null,pyReady=null,pyDone=null,pySink=null;
 function ensurePy(){
   if(pyReady)return pyReady;
   out('info','Загружаю Python. Это нужно только при первом запуске, около 10 МБ.');
-  pyW=new Worker(blobURL(PY_WORKER));
+  const viaSW=UI.pyCached&&navigator.serviceWorker&&navigator.serviceWorker.controller;pyW=new Worker(viaSW?'./lk-py-worker.js':blobURL(PY_WORKER));
   pyReady=new Promise((res,rej)=>{
     pyW.onmessage=e=>{const d=e.data;if(d.t==='ready'){out('info','Python готов');res()}else if(d.t==='fatal')rej(d.s);else if(d.t==='done'){if(pyDone)pyDone()}else(pySink||out)(d.t,d.s)};
     pyW.onerror=e=>rej(e.message||'ошибка загрузки')});
-  pyReady.catch(()=>{if(pyW)pyW.terminate();pyW=null;pyReady=null});
+  pyReady.catch(()=>{UI.pyCached=false;if(pyW)pyW.terminate();pyW=null;pyReady=null});
   return pyReady}
 function killPy(){if(pyW)pyW.terminate();pyW=null;pyReady=null;if(pyDone){const d=pyDone;pyDone=null;d()}}
 async function runPy(code,sink=out,fresh=false){
@@ -489,6 +489,8 @@ function act(a,id){
   case'pkgStop':if(UI.pk){UI.pk.stop=true;if(LLM.engine)LLM.engine.interruptGenerate();stopRun();toast('Останавливаю')}break;
   case'pkgReset':{const k=(p.packages||[]).find(x=>x.id===id);if(!k||(UI.pk&&UI.pk.id===k.id))return;if(confirm('Сбросить статусы задач пакета? Файлы останутся.')){k.tasks.forEach(t=>{t.status='pending';t.log=[];t.stage='';t.lastError=''});touch(p);render()}break}
   case'pkgDel':{const k=(p.packages||[]).find(x=>x.id===id);if(!k)return;if(UI.pk&&UI.pk.id===k.id)return toast('Сначала остановите выполнение');if(confirm('Удалить пакет «'+k.name+'»? Файлы проекта останутся.')){p.packages=p.packages.filter(x=>x!==k);touch(p);render()}break}
+  case'pkgBuild':{const k=(p.packages||[]).find(x=>x.id===id);if(k)pkgBuild(p,k);break}
+  case'pkgReport':{const k=(p.packages||[]).find(x=>x.id===id);if(k)pkgReport(p,k);break}
   case'taskOpen':{const c=id.indexOf(':'),k=(p.packages||[]).find(x=>x.id===id.slice(0,c)),t=k&&k.tasks.find(x=>x.id===id.slice(c+1)),f=t&&p.files.find(f=>f.name===t.file);if(f)openFile(p,f);break}
   case'openArt':UI.artifactId=id;UI.artTab='preview';render();break;
   case'artTab':UI.artTab=id;render();break;
@@ -521,7 +523,7 @@ function parsePackage(txt){
     return{id,title:String(t.title||''),role:String(t.role||'coder'),lang,file:String(t.file||id+'.'+EXT[lang]),depends:Array.isArray(t.depends)?t.depends.map(String):[],task:String(t.task),tests:Array.isArray(t.tests)?t.tests.map(x=>typeof x==='string'?x:String(x.code||x)):[],status:'pending',log:[],stage:'',lastError:''}});
   tasks.forEach(t=>t.depends.forEach(d=>{if(!ids.has(d))throw new Error('задача '+t.id+' зависит от несуществующей '+d)}));
   topo(tasks);
-  return{id:uid(),name:String(j.project||j.name||'Пакет задач'),goal:String(j.goal||''),context:String(j.context||''),tasks,created:Date.now()}}
+  return{id:uid(),assemble:j.assemble&&typeof j.assemble==='object'?j.assemble:null,name:String(j.project||j.name||'Пакет задач'),goal:String(j.goal||''),context:String(j.context||''),tasks,created:Date.now()}}
 function addPackage(txt,asNew){
   const k=parsePackage(txt);let p=!asNew&&UI.projectId&&proj(UI.projectId);if(!p)p=newProject(k.name);
   (p.packages=p.packages||[]).push(k);touch(p);UI.projectId=p.id;UI.view='projects';render();
@@ -531,12 +533,37 @@ function pkgSection(p){const ks=p.packages||[];
   <textarea id="pkgText" class="desc pkgt" placeholder="Или вставьте сюда пакет задач, который подготовил Claude" spellcheck="false" autocapitalize="off" autocorrect="off" aria-label="Текст пакета задач"></textarea>
   <div class="mpr mt8"><button class="btn" data-act="pkgPaste">Добавить пакет</button></div>${ks.map(k=>pkgCard(p,k)).join('')}`}
 function pkgCard(p,k){
-  const run=UI.pk&&UI.pk.id===k.id,done=k.tasks.filter(t=>t.status==='done').length,fail=k.tasks.filter(t=>t.status==='failed').length;
+  const run=UI.pk&&UI.pk.id===k.id,done=k.tasks.filter(t=>t.status==='done').length,fail=k.tasks.filter(t=>t.status==='failed').length,all=done===k.tasks.length,touched=k.tasks.some(t=>t.status!=='pending');
   return`<div class="pk"><div class="pkh"><div class="rmain"><div class="rt">${esc(k.name)}</div><div class="rs">Готово ${done} из ${k.tasks.length}${fail?', с ошибками '+fail:''}</div></div>
-  ${run?'<button class="btn pri danger" data-act="pkgStop">Остановить</button>':`<button class="btn pri" data-act="pkgRun" data-id="${k.id}">${done?'Продолжить':'Выполнить'}</button><button class="btn" data-act="pkgReset" data-id="${k.id}">Сбросить</button><button class="icon-btn" data-act="pkgDel" data-id="${k.id}" aria-label="Удалить пакет">✕</button>`}</div>
+  ${run?'<button class="btn pri danger" data-act="pkgStop">Остановить</button>':`${all?'':`<button class="btn pri" data-act="pkgRun" data-id="${k.id}">${done?'Продолжить':'Выполнить'}</button>`}${done?`<button class="btn${all?' pri':''}" data-act="pkgBuild" data-id="${k.id}">Собрать</button>`:''}${touched?`<button class="btn" data-act="pkgReport" data-id="${k.id}">Отчёт для Claude</button>`:''}<button class="btn" data-act="pkgReset" data-id="${k.id}">Сбросить</button><button class="icon-btn" data-act="pkgDel" data-id="${k.id}" aria-label="Удалить пакет">✕</button>`}</div>
   ${k.goal?'<div class="muted small pkg">'+esc(k.goal)+'</div>':''}
   <div class="tl">${k.tasks.map(t=>{const key=k.id+':'+t.id;return`<details data-t="${key}" ${UI.openT.has(key)?'open':''}><summary><span class="sti s-${t.status}">${STI[t.status]||'○'}</span><span class="tt"><b>${esc(t.id)}</b> ${esc(t.title||t.task.slice(0,60))}</span><span class="muted small">${t.status==='running'?esc(t.stage||'в работе'):STN[t.status]||''}</span></summary>
     <div class="td"><div class="muted small">${esc(t.file)}, ${LANGN[t.lang]}${t.depends.length?', зависит от '+esc(t.depends.join(', ')):''}</div><div class="tx">${esc(t.task)}</div>${t.log.length?'<div class="tlog">'+esc(t.log.join('\n'))+'</div>':''}${t.lastError&&t.status==='failed'?'<div class="tlog errt">'+esc(t.lastError)+'</div>':''}${p.files.some(f=>f.name===t.file)?`<button class="btn" data-act="taskOpen" data-id="${key}">Открыть файл</button>`:''}</div></details>`}).join('')}</div></div>`}
+function pkgBuild(p,k){
+  let order;try{order=topo(k.tasks)}catch(e){return toast(e.message)}
+  const fs=order.filter(t=>t.status==='done').map(t=>({t,f:p.files.find(f=>f.name===t.file)})).filter(x=>x.f);
+  if(!fs.length)return toast('Нет готовых файлов для сборки');
+  const A=k.assemble||{},base=String(A.name||k.name),run=A.run?String(A.run):'',made=[];
+  const add=(name,fileName,lang,text)=>{const a={id:uid(),name,fileName,lang,text,created:Date.now(),projectId:p.id};S.artifacts.unshift(a);made.push(a)};
+  const js=fs.filter(x=>x.t.lang==='js').map(x=>'// ===== '+x.f.name+' =====\n'+x.f.text).join('\n\n');
+  const py=fs.filter(x=>x.t.lang==='py').map(x=>'# ===== '+x.f.name+' =====\n'+x.f.text).join('\n\n');
+  const hs=fs.filter(x=>x.t.lang==='html'),h=hs.find(x=>x.f.name===A.entry)||hs[hs.length-1];
+  if(h){let page=h.f.text;
+    if(js){const tag='<script>\n'+js.replace(/<\/script/gi,'<\\/script')+'\n<\/script>\n',i=page.search(/<script/i),j=page.search(/<\/body>/i);
+      page=i>=0?page.slice(0,i)+tag+page.slice(i):j>=0?page.slice(0,j)+tag+page.slice(j):page+'\n'+tag}
+    add(base,h.f.name,'html',page)}
+  else if(js)add(base,'bundle.js','js',js+(run&&!py?'\n\n// ===== запуск =====\n'+run:''));
+  if(py)add(base+(made.length?' (Python)':''),'bundle.py','py',py+(run&&!js?'\n\n# ===== запуск =====\n'+run:''));
+  save();UI.view='artifacts';UI.artifactId=made[0].id;UI.artTab='preview';render();
+  toast('Собрано: '+made.length+' '+plural(made.length,'артефакт','артефакта','артефактов'))}
+function pkgReport(p,k){
+  const L=['Отчёт «Локальный кодер» '+VERSION,'Пакет: '+k.name,'Модель: '+(LLM.loaded?mlabel():'не запущена'),'Итог: готово '+k.tasks.filter(t=>t.status==='done').length+' из '+k.tasks.length,''];
+  k.tasks.forEach(t=>{L.push(t.id+' «'+(t.title||'')+'» ('+t.file+'): '+(STN[t.status]||t.status));
+    if(t.log.length)L.push('  журнал: '+t.log.join('; '));
+    if(t.status==='failed'){if(t.lastError)L.push('  ошибка: '+t.lastError);const f=p.files.find(f=>f.name===t.file);if(f)L.push('  последний код:\n```'+LN[t.lang]+'\n'+f.text.slice(0,4000)+'\n```')}});
+  const txt=L.join('\n'),fb=()=>download('report-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.txt',txt);
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(()=>toast('Отчёт скопирован: вставьте его в чат с Claude'),()=>{fb();toast('Скопировать не удалось, отчёт скачан файлом')});
+  else fb()}
 const rp=p=>{save();if(UI.view==='projects'&&UI.projectId===p.id)render()};
 function depCode(p,k,t){const seen=new Set(),out=[];const walk=id=>{if(seen.has(id))return;seen.add(id);const x=k.tasks.find(y=>y.id===id);if(!x)return;x.depends.forEach(walk);if(x.lang===t.lang&&x.status==='done'){const f=p.files.find(f=>f.name===x.file);if(f)out.push(f.text)}};t.depends.forEach(walk);return out.join('\n\n')}
 function brief(k,t,deps){return(k.goal?'Цель проекта: '+k.goal+'\n':'')+(k.context?'Общие правила:\n'+k.context.slice(0,1000)+'\n':'')+(deps?'\nУже написанный код:\n```'+LN[t.lang]+'\n'+deps.slice(-1500)+'\n```\n':'')+'\nЗадача '+t.id+(t.title?' «'+t.title+'»':'')+', файл '+t.file+':\n'+t.task+(t.tests.length?'\n\nКод должен пройти проверки:\n'+t.tests.join('\n').slice(0,800):'')}
@@ -613,7 +640,11 @@ $('#bkFile').onchange=async e=>{
 
 /* Старт */
 (async()=>{
-  $('#ver').textContent=VERSION;
+  const verLbl=()=>{$('#ver').textContent=VERSION+(navigator.serviceWorker&&navigator.serviceWorker.controller?' · офлайн готов':'')};verLbl();
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.addEventListener('controllerchange',verLbl);
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    try{caches.open('lk-v1').then(c=>c.put(new URL('lk-py-worker.js',location.href),new Response(PY_WORKER,{headers:{'Content-Type':'text/javascript; charset=utf-8'}}))).then(()=>{UI.pyCached=true},()=>{})}catch(e){}}
   await DB.open();
   if(!DB.db)toast('Хранилище браузера недоступно: данные не сохранятся');
   const d=await DB.get('state');if(d)S=normalize(d);
