@@ -155,7 +155,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 </div>
 <div class="toast" id="toast" role="status"></div>
 <script>
-const VERSION='0.4.2';
+const VERSION='0.4.3';
 const $=s=>document.querySelector(s);
 const V=()=>$('#view');
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -175,9 +175,9 @@ const langOf=n=>{const e=String(n).split('.').pop().toLowerCase();return e==='py
 const plural=(n,a,b,c)=>{const m=n%10,h=n%100;return m===1&&h!==11?a:m>=2&&m<=4&&(h<10||h>=20)?b:c};
 const fmt=t=>new Date(t).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
 const DEF_CODE=()=>({lang:'js',name:'main.js',text:SAMPLE.js,projectId:''});
-let S={projects:[],artifacts:[],chats:[],settings:{model:''},code:DEF_CODE()};
+let S={projects:[],artifacts:[],chats:[],settings:{model:''},code:DEF_CODE(),resume:null};
 const UI={view:'code',projectId:null,artifactId:null,artTab:'preview',log:[],running:false,tab:'console',lastHtml:'',chatId:null,draft:'',gen:false,pk:null,wl:null,openT:new Set(),pkgDraft:'',pkgNew:false};
-function normalize(d){d=d||{};return{projects:Array.isArray(d.projects)?d.projects:[],artifacts:Array.isArray(d.artifacts)?d.artifacts:[],code:d.code&&typeof d.code.text==='string'?d.code:DEF_CODE(),chats:Array.isArray(d.chats)?d.chats:[],settings:d.settings&&typeof d.settings==='object'?d.settings:{model:''}}}
+function normalize(d){d=d||{};return{projects:Array.isArray(d.projects)?d.projects:[],artifacts:Array.isArray(d.artifacts)?d.artifacts:[],code:d.code&&typeof d.code.text==='string'?d.code:DEF_CODE(),chats:Array.isArray(d.chats)?d.chats:[],settings:d.settings&&typeof d.settings==='object'?d.settings:{model:''},resume:d.resume&&d.resume.pkgId?d.resume:null}}
 /* Хранилище: IndexedDB */
 const DB={db:null,
 open(){return new Promise(res=>{try{const r=indexedDB.open('local-coder',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>{this.db=r.result;res()};r.onerror=()=>res()}catch(e){res()}})},
@@ -474,7 +474,7 @@ case'pkgNew':UI.pkgNew=true;$('#pkgInput').click();break;
 case'pkgFile':UI.pkgNew=false;$('#pkgInput').click();break;
 case'pkgPaste':{const t=UI.pkgDraft||'';if(!t.trim())return toast('Вставьте текст пакета');try{parsePackage(t);UI.pkgDraft='';addPackage(t,false)}catch(err){toast('Пакет не принят: '+err.message)}break}
 case'pkgRun':{const k=(p.packages||[]).find(x=>x.id===id);if(k)runPackage(p,k);break}
-case'pkgStop':if(UI.pk){UI.pk.stop=true;if(LLM.engine)LLM.engine.interruptGenerate();stopRun();toast('Останавливаю')}break;
+case'pkgStop':if(UI.pk){UI.pk.stop=true;S.resume=null;if(LLM.engine)LLM.engine.interruptGenerate();stopRun();toast('Останавливаю')}break;
 case'pkgReset':{const k=(p.packages||[]).find(x=>x.id===id);if(!k||(UI.pk&&UI.pk.id===k.id))return;if(confirm('Сбросить статусы задач пакета? Файлы останутся.')){k.tasks.forEach(t=>{t.status='pending';t.log=[];t.stage='';t.lastError='';t.code=''});touch(p);render()}break}
 case'pkgDel':{const k=(p.packages||[]).find(x=>x.id===id);if(!k)return;if(UI.pk&&UI.pk.id===k.id)return toast('Сначала остановите выполнение');if(confirm('Удалить пакет «'+k.name+'»? Файлы проекта останутся.')){p.packages=p.packages.filter(x=>x!==k);touch(p);render()}break}
 case'pkgBuild':{const k=(p.packages||[]).find(x=>x.id===id);if(k)pkgBuild(p,k);break}
@@ -622,11 +622,12 @@ if(res.ok)break}
 if(code)upsertFile(p,t.file,code);
 if(UI.pk.stop&&!(res&&res.ok)){t.status='pending';t.stage='';t.log.push(UI.pk.dead?'Остановлено: модель выгружена':'Остановлено');rp(p);return}
 t.status=res&&res.ok?'done':'failed';t.stage='';if(t.status==='failed')t.lastError=res?res.detail:'';touch(p);rp(p)}
-async function runPackage(p,k){
+async function runPackage(p,k,auto){
 if(UI.pk)return toast('Уже выполняется другой пакет');
 if(UI.gen)return toast('Дождитесь окончания ответа в чате');
 if(LLM.state!=='ready'||!LLM.engine){toast('Сначала запустите модель в разделе «Чаты»');return}
 let order;try{order=topo(k.tasks)}catch(e){return toast('Ошибка пакета: '+e.message)}
+if(!auto)S.resume=null;
 UI.pk={id:k.id,stop:false,dead:false};
 try{if(navigator.wakeLock)UI.wl=await navigator.wakeLock.request('screen')}catch(e){}
 k.tasks.forEach(t=>{if(t.status!=='done'){t.status='pending';t.stage=''}});rp(p);
@@ -638,6 +639,10 @@ await runTask(p,k,t)}
 const stopped=UI.pk.stop,dead=UI.pk.dead;UI.pk=null;
 try{if(UI.wl)await UI.wl.release()}catch(e){}UI.wl=null;
 touch(p);rp(p);
+/* 0.4.3: автовосстановление — перезагрузка страницы возвращает GPU */
+if(dead){const n=(S.resume&&S.resume.pkgId===k.id?S.resume.n:0)+1;
+if(n<=3){S.resume={projectId:p.id,pkgId:k.id,model:S.settings.model||LLM.def,n};await flush();toast('Модель потеряна, перезагружаю страницу ('+n+' из 3)');setTimeout(()=>location.reload(),1500);return}
+S.resume=null;save()}else S.resume=null;
 const done=k.tasks.filter(t=>t.status==='done').length;
 toast(dead?'Модель выгружена системой. Запустите её в «Чатах» и нажмите «Продолжить»':stopped?'Выполнение остановлено':'Пакет выполнен: готово '+done+' из '+k.tasks.length)}
 $('#pkgInput').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{addPackage(await f.text(),UI.pkgNew)}catch(err){toast('Пакет не принят: '+err.message)}UI.pkgNew=false};
@@ -662,7 +667,17 @@ if(!DB.db)toast('Хранилище браузера недоступно: да�
 const d=await DB.get('state');if(d)S=normalize(d);
 S.projects.forEach(p=>(p.packages||[]).forEach(k=>k.tasks.forEach(t=>{if(t.status==='running'){t.status='pending';t.stage=''}})));
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
-render()})();
+render();
+const R=S.resume;if(R){
+const p=proj(R.projectId),k=p&&(p.packages||[]).find(x=>x.id===R.pkgId);
+if(!k){S.resume=null;save();return}
+UI.projectId=p.id;UI.view='projects';render();toast('Восстанавливаю модель после перезагрузки');
+await LLM.init();
+if(LLM.lib&&LLM.state!=='nogpu')await LLM.load(R.model);
+if(LLM.state==='ready'&&LLM.engine){toast('Модель восстановлена, продолжаю пакет');runPackage(p,k,true);return}
+if(R.n<3&&LLM.state!=='nogpu'){R.n++;await flush();toast('GPU ещё недоступен, повторная перезагрузка ('+R.n+' из 3)');setTimeout(()=>location.reload(),4000);return}
+S.resume=null;save();toast('Автовосстановление не удалось. Закройте приложение, запустите модель 0.5B и нажмите «Продолжить»')}
+})();
 </script>
 </body>
 </html>
