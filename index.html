@@ -129,33 +129,33 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 </head>
 <body>
 <div class="app">
-  <aside class="side" id="side">
-    <div class="brand"><span class="mark"></span>Локальный кодер</div>
-    <nav id="nav"></nav>
-    <div class="sec">Недавние проекты</div>
-    <div id="recent" class="recent"></div>
-    <div class="foot">
-      <button class="link" id="bkExport">Скачать резервную копию</button>
-      <button class="link" id="bkImport">Восстановить из копии</button>
-      <input type="file" id="bkFile" accept=".json,application/json" hidden>
-      <input type="file" id="pkgInput" accept=".json,.txt,application/json,text/plain" hidden>
-      <div class="ver">Версия <span id="ver"></span></div>
-    </div>
-  </aside>
-  <div class="scrim" id="scrim"></div>
-  <main class="main">
-    <header class="top">
-      <button class="iconb menu" id="menuBtn" aria-label="Меню">☰</button>
-      <span id="backSlot"></span>
-      <h1 id="title"></h1>
-      <div id="topActions" class="top-actions"></div>
-    </header>
-    <section id="view" class="view"></section>
-  </main>
+<aside class="side" id="side">
+<div class="brand"><span class="mark"></span>Локальный кодер</div>
+<nav id="nav"></nav>
+<div class="sec">Недавние проекты</div>
+<div id="recent" class="recent"></div>
+<div class="foot">
+<button class="link" id="bkExport">Скачать резервную копию</button>
+<button class="link" id="bkImport">Восстановить из копии</button>
+<input type="file" id="bkFile" accept=".json,application/json" hidden>
+<input type="file" id="pkgInput" accept=".json,.txt,application/json,text/plain" hidden>
+<div class="ver">Версия <span id="ver"></span></div>
+</div>
+</aside>
+<div class="scrim" id="scrim"></div>
+<main class="main">
+<header class="top">
+<button class="iconb menu" id="menuBtn" aria-label="Меню">☰</button>
+<span id="backSlot"></span>
+<h1 id="title"></h1>
+<div id="topActions" class="top-actions"></div>
+</header>
+<section id="view" class="view"></section>
+</main>
 </div>
 <div class="toast" id="toast" role="status"></div>
 <script>
-const VERSION='0.4.0';
+const VERSION='0.4.1';
 const $=s=>document.querySelector(s);
 const V=()=>$('#view');
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -174,12 +174,10 @@ art:'<svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9zM4 7.5l8 4.
 const langOf=n=>{const e=String(n).split('.').pop().toLowerCase();return e==='py'?'py':(e==='html'||e==='htm')?'html':'js'};
 const plural=(n,a,b,c)=>{const m=n%10,h=n%100;return m===1&&h!==11?a:m>=2&&m<=4&&(h<10||h>=20)?b:c};
 const fmt=t=>new Date(t).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-
 const DEF_CODE=()=>({lang:'js',name:'main.js',text:SAMPLE.js,projectId:''});
 let S={projects:[],artifacts:[],chats:[],settings:{model:''},code:DEF_CODE()};
 const UI={view:'code',projectId:null,artifactId:null,artTab:'preview',log:[],running:false,tab:'console',lastHtml:'',chatId:null,draft:'',gen:false,pk:null,wl:null,openT:new Set(),pkgDraft:'',pkgNew:false};
 function normalize(d){d=d||{};return{projects:Array.isArray(d.projects)?d.projects:[],artifacts:Array.isArray(d.artifacts)?d.artifacts:[],code:d.code&&typeof d.code.text==='string'?d.code:DEF_CODE(),chats:Array.isArray(d.chats)?d.chats:[],settings:d.settings&&typeof d.settings==='object'?d.settings:{model:''}}}
-
 /* Хранилище: IndexedDB */
 const DB={db:null,
 open(){return new Promise(res=>{try{const r=indexedDB.open('local-coder',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>{this.db=r.result;res()};r.onerror=()=>res()}catch(e){res()}})},
@@ -190,157 +188,155 @@ const flush=()=>{clearTimeout(saveT);return DB.set('state',JSON.parse(JSON.strin
 const save=()=>{clearTimeout(saveT);saveT=setTimeout(flush,300)};
 addEventListener('pagehide',flush);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)flush()});
-
 const proj=id=>S.projects.find(p=>p.id===id);
 const art=()=>S.artifacts.find(a=>a.id===UI.artifactId);
 const touch=p=>{p.updated=Date.now();save()};
 function newProject(n){const t=Date.now(),p={id:uid(),name:n,desc:'',files:[],created:t,updated:t};S.projects.push(p);save();return p}
-
 let toastT;
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200)}
 function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:(type||'text/plain')+';charset=utf-8'}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
-
 /* Каркас */
 function header(t,actions,back){$('#backSlot').innerHTML=back?'<button class="iconb" data-act="back" aria-label="Назад">‹</button>':'';$('#title').textContent=t;$('#topActions').innerHTML=actions||''}
 function empty(title,text,btn){return`<div class="empty"><div class="big">${title}</div><p>${text}</p>${btn||''}</div>`}
 function renderNav(){
-  const N=[['chats','Чаты',IC.chat],['projects','Проекты',IC.proj],['code','Код',IC.code],['artifacts','Артефакты',IC.art]];
-  $('#nav').innerHTML=N.map(([k,l,i])=>`<button class="nav ${UI.view===k?'on':''}" data-go="${k}"><span class="ic">${i}</span>${l}</button>`).join('');
-  const r=S.projects.slice().sort((a,b)=>b.updated-a.updated).slice(0,6);
-  $('#recent').innerHTML=r.length?r.map(p=>`<button class="nav sm" data-proj="${p.id}">${esc(p.name)}</button>`).join(''):'<div class="muted pad">Пока пусто</div>';
+const N=[['chats','Чаты',IC.chat],['projects','Проекты',IC.proj],['code','Код',IC.code],['artifacts','Артефакты',IC.art]];
+$('#nav').innerHTML=N.map(([k,l,i])=>`<button class="nav ${UI.view===k?'on':''}" data-go="${k}"><span class="ic">${i}</span>${l}</button>`).join('');
+const r=S.projects.slice().sort((a,b)=>b.updated-a.updated).slice(0,6);
+$('#recent').innerHTML=r.length?r.map(p=>`<button class="nav sm" data-proj="${p.id}">${esc(p.name)}</button>`).join(''):'<div class="muted pad">Пока пусто</div>';
 }
 function render(){renderNav();({chats:vChats,projects:vProjects,code:vCode,artifacts:vArts})[UI.view]()}
 function go(v){if(v==='projects')UI.projectId=null;if(v==='artifacts')UI.artifactId=null;if(v==='chats')UI.chatId=null;UI.view=v;closeDrawer();render()}
 function closeDrawer(){$('#side').classList.remove('open');$('#scrim').classList.remove('open')}
 $('#menuBtn').onclick=()=>{$('#side').classList.add('open');$('#scrim').classList.add('open')};
 $('#scrim').onclick=closeDrawer;
-
 /* Нейросеть */
 const WEBLLM_VERS=['0.2.79','0.2.78','0.2.75'];
 const SYS='Ты локальный помощник-программист. Пиши рабочий код на JavaScript, Python или HTML. Код всегда помещай в блок ``` с указанием языка (javascript, python или html). Объясняй кратко и по-русски. Учитывай среду: код запускается в браузере; в Python нет input(), файлов и сети; в JavaScript нет DOM, кроме HTML-страниц. Если запрос неясен, сделай разумное допущение и назови его.';
+/* 0.4.1: штраф за повторы выключен, иначе модель теряет повторяющиеся цифры (200 -> 20) */
+const GEN={repetition_penalty:1.0,frequency_penalty:0,presence_penalty:0};
+const DEAD='Модель выгружена системой и не перезапустилась';
 const rc=()=>{if(UI.view==='chats')render()};
 const LLM={lib:null,engine:null,state:'idle',progress:0,text:'',models:[],loaded:'',err:'',def:'',initing:false,
 async init(){
-  if(this.lib||this.initing||this.state==='nogpu')return;
-  if(!navigator.gpu){this.state='nogpu';rc();return}
-  this.initing=true;this.state='idle';this.err='';
-  for(const v of WEBLLM_VERS){try{this.lib=await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@'+v+'/+esm');break}catch(e){}}
-  this.initing=false;
-  if(!this.lib){this.state='error';this.err='Не удалось загрузить библиотеку нейросети. При первом запуске нужен интернет.';rc();return}
-  let f16=false;try{const a=await navigator.gpu.requestAdapter();f16=!!a&&a.features.has('shader-f16')}catch(e){}
-  const list=this.lib.prebuiltAppConfig.model_list,qs=f16?['q4f16_1','q4f32_1']:['q4f32_1'];
-  const pick=base=>{for(const q of qs){const r=list.find(m=>m.model_id===base+'-'+q+'-MLC');if(r)return r}};
-  const NOTE={'0.5B':'быстрая, простые задачи','1.5B':'основная','3B':'умнее, тяжелее'};
-  let rec=['Qwen2.5-Coder-0.5B-Instruct','Qwen2.5-Coder-1.5B-Instruct','Qwen2.5-Coder-3B-Instruct'].map(pick).filter(Boolean);
-  if(!rec.length)rec=list.filter(m=>/^Qwen2\.5-(0\.5|1\.5|3)B-Instruct/.test(m.model_id)&&qs.some(q=>m.model_id.includes(q)));
-  this.models=rec.map(m=>{const sz=(m.model_id.match(/(\d+(?:\.\d+)?B)/)||[])[1]||'';return{id:m.model_id,label:(/Coder/.test(m.model_id)?'Qwen Coder ':'Qwen ')+sz+(NOTE[sz]?', '+NOTE[sz]:'')+(m.vram_required_MB?' (~'+(m.vram_required_MB/1024).toFixed(1)+' ГБ)':'')}});
-  this.def=(this.models.find(m=>/1\.5B/.test(m.id))||this.models[0]||{}).id||'';
-  if(!this.models.length){this.state='error';this.err='В этой версии библиотеки не нашлось подходящих моделей.'}
-  rc()},
+if(this.lib||this.initing||this.state==='nogpu')return;
+if(!navigator.gpu){this.state='nogpu';rc();return}
+this.initing=true;this.state='idle';this.err='';
+for(const v of WEBLLM_VERS){try{this.lib=await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@'+v+'/+esm');break}catch(e){}}
+this.initing=false;
+if(!this.lib){this.state='error';this.err='Не удалось загрузить библиотеку нейросети. При первом запуске нужен интернет.';rc();return}
+let f16=false;try{const a=await navigator.gpu.requestAdapter();f16=!!a&&a.features.has('shader-f16')}catch(e){}
+const list=this.lib.prebuiltAppConfig.model_list,qs=f16?['q4f16_1','q4f32_1']:['q4f32_1'];
+const pick=base=>{for(const q of qs){const r=list.find(m=>m.model_id===base+'-'+q+'-MLC');if(r)return r}};
+const NOTE={'0.5B':'быстрая, простые задачи','1.5B':'основная','3B':'умнее, тяжелее'};
+let rec=['Qwen2.5-Coder-0.5B-Instruct','Qwen2.5-Coder-1.5B-Instruct','Qwen2.5-Coder-3B-Instruct'].map(pick).filter(Boolean);
+if(!rec.length)rec=list.filter(m=>/^Qwen2\.5-(0\.5|1\.5|3)B-Instruct/.test(m.model_id)&&qs.some(q=>m.model_id.includes(q)));
+this.models=rec.map(m=>{const sz=(m.model_id.match(/(\d+(?:\.\d+)?B)/)||[])[1]||'';return{id:m.model_id,label:(/Coder/.test(m.model_id)?'Qwen Coder ':'Qwen ')+sz+(NOTE[sz]?', '+NOTE[sz]:'')+(m.vram_required_MB?' (~'+(m.vram_required_MB/1024).toFixed(1)+' ГБ)':'')}});
+this.def=(this.models.find(m=>/1\.5B/.test(m.id))||this.models[0]||{}).id||'';
+if(!this.models.length){this.state='error';this.err='В этой версии библиотеки не нашлось подходящих моделей.'}
+rc()},
 async load(id){
-  if(!id||this.state==='loading')return;
-  this.state='loading';this.progress=0;this.text='';rc();
-  try{const cb=r=>{this.progress=r.progress||0;this.text=r.text||'';updProg()};
-    if(this.engine){const old=this.engine;this.engine=null;try{await old.unload()}catch(e){}}
-    this.engine=await this.lib.CreateMLCEngine(id,{initProgressCallback:cb});
-    this.loaded=id;this.state='ready';S.settings.model=id;save();toast('Модель готова')}
-  catch(e){this.engine=null;this.state='error';this.err='Ошибка загрузки: '+(e&&e.message||e)+'. Обновите страницу и попробуйте снова; если ошибка повторится, выберите модель поменьше.';this.loaded=''}
-  rc()}};
-const isDead=e=>/disposed|lost|destroyed|GPUDevice/i.test(String(e&&e.message||e));
+if(!id||this.state==='loading')return;
+this.state='loading';this.progress=0;this.text='';rc();
+try{const cb=r=>{this.progress=r.progress||0;this.text=r.text||'';updProg()};
+if(this.engine){const old=this.engine;this.engine=null;try{await old.unload()}catch(e){}}
+this.engine=await this.lib.CreateMLCEngine(id,{initProgressCallback:cb});
+this.loaded=id;this.state='ready';S.settings.model=id;save();toast('Модель готова')}
+catch(e){this.engine=null;this.state='error';this.err='Ошибка загрузки: '+(e&&e.message||e)+'. Обновите страницу и попробуйте снова; если ошибка повторится, выберите модель поменьше.';this.loaded=''}
+rc()}};
+const isDead=e=>!LLM.engine||/disposed|lost|destroyed|GPUDevice|null is not an object|Cannot read propert/i.test(String(e&&e.message||e));
 LLM.recover=function(){
-  if(this.rec)return this.rec;
-  const id=this.loaded||S.settings.model||this.def;
-  toast('Система выгрузила модель, перезапускаю');
-  this.rec=(async()=>{this.state='idle';await this.load(id);this.rec=null;return this.state==='ready'})();
-  return this.rec};
+if(this.rec)return this.rec;
+const id=this.loaded||S.settings.model||this.def;
+toast('Система выгрузила модель, перезапускаю');
+this.rec=(async()=>{this.state='idle';await new Promise(r=>setTimeout(r,2000));await this.load(id);this.rec=null;return this.state==='ready'})();
+return this.rec};
+/* 0.4.1: защита от зацикливания — одна и та же строка подряд больше 8 раз */
+function looping(s){const L=s.split('\n');if(L.length<10)return false;const last=L[L.length-2].trim();if(last.length<4)return false;let n=0;for(let i=L.length-2;i>=0&&L[i].trim()===last;i--)n++;return n>8}
 const mlabel=()=>(LLM.models.find(m=>m.id===LLM.loaded)||{label:LLM.loaded}).label;
 function updProg(){const p=Math.round(LLM.progress*100),a=$('#mpct'),b=$('#mbar'),t=$('#mtxt');if(a)a.textContent=p+'%';if(b)b.style.width=p+'%';if(t)t.textContent=LLM.text}
 function modelPanel(){
-  let in_='';
-  if(LLM.state==='nogpu')in_='<b>WebGPU недоступен.</b> Откройте приложение в Safari на iPadOS 26 или новее.';
-  else if(!LLM.lib)in_=LLM.state==='error'?'<span class="errt">'+esc(LLM.err)+'</span><div><button class="btn" data-act="llmInit">Повторить</button></div>':'Подготовка нейросети…';
-  else if(LLM.state==='loading'){const p=Math.round(LLM.progress*100);in_=`<div>Загрузка модели: <span id="mpct">${p}%</span></div><div class="pbar"><i id="mbar" style="width:${p}%"></i></div><div class="muted small" id="mtxt">${esc(LLM.text)}</div>`}
-  else{const cur=[LLM.loaded,S.settings.model,LLM.def].find(x=>x&&LLM.models.some(m=>m.id===x));
-    const st=LLM.state==='ready'?'<span class="dot"></span>Готова: '+esc(mlabel()):LLM.state==='error'?'<span class="errt">'+esc(LLM.err)+'</span>':'Модель не запущена';
-    in_=`<div class="mpr">${st}</div><div class="mpr"><select id="msel" aria-label="Модель">${LLM.models.map(m=>`<option value="${m.id}" ${m.id===cur?'selected':''}>${esc(m.label)}</option>`).join('')}</select><button class="btn pri" data-act="llmLoad">${LLM.state==='ready'?'Сменить модель':'Запустить модель'}</button></div><div class="muted small">Первый запуск скачивает модель, дальше она берётся из памяти iPad и работает без интернета.</div>`}
-  return '<div class="mpw"><div class="mp">'+in_+'</div></div>'}
+let in_='';
+if(LLM.state==='nogpu')in_='<b>WebGPU недоступен.</b> Откройте приложение в Safari на iPadOS 26 или новее.';
+else if(!LLM.lib)in_=LLM.state==='error'?'<span class="errt">'+esc(LLM.err)+'</span><div><button class="btn" data-act="llmInit">Повторить</button></div>':'Подготовка нейросети…';
+else if(LLM.state==='loading'){const p=Math.round(LLM.progress*100);in_=`<div>Загрузка модели: <span id="mpct">${p}%</span></div><div class="pbar"><i id="mbar" style="width:${p}%"></i></div><div class="muted small" id="mtxt">${esc(LLM.text)}</div>`}
+else{const cur=[LLM.loaded,S.settings.model,LLM.def].find(x=>x&&LLM.models.some(m=>m.id===x));
+const st=LLM.state==='ready'?'<span class="dot"></span>Готова: '+esc(mlabel()):LLM.state==='error'?'<span class="errt">'+esc(LLM.err)+'</span>':'Модель не запущена';
+in_=`<div class="mpr">${st}</div><div class="mpr"><select id="msel" aria-label="Модель">${LLM.models.map(m=>`<option value="${m.id}" ${m.id===cur?'selected':''}>${esc(m.label)}</option>`).join('')}</select><button class="btn pri" data-act="llmLoad">${LLM.state==='ready'?'Сменить модель':'Запустить модель'}</button></div><div class="muted small">Первый запуск скачивает модель, дальше она берётся из памяти iPad и работает без интернета.</div>`}
+return '<div class="mpw"><div class="mp">'+in_+'</div></div>'}
 function wireModel(){const s=$('#msel');if(s)s.addEventListener('change',e=>{S.settings.model=e.target.value;save()})}
-
 /* Чаты */
 const curChat=()=>S.chats.find(c=>c.id===UI.chatId);
 function newChat(){const t=Date.now(),c={id:uid(),title:'Новый чат',msgs:[],created:t,updated:t};S.chats.unshift(c);UI.chatId=c.id;UI.draft='';save();return c}
 function md(t,i){const P=t.split('```');let h='',k=0;
-  P.forEach((p,j)=>{
-    if(j%2===0){const s=p.replace(/^\n+|\n+$/g,'');if(s)h+='<div class="tx">'+esc(s).replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/^#{1,4} (.+)$/gm,'<b>$1</b>')+'</div>'}
-    else{const nl=p.indexOf('\n'),lang=nl>=0?p.slice(0,nl).trim():'',code=nl>=0?p.slice(nl+1):'',open=j===P.length-1;
-      h+=`<div class="cb"><div class="cbh"><span>${esc(lang||'код')}</span>${open?'':`<button class="tab" data-act="cbEdit" data-id="${i}:${k}">В редактор</button><button class="tab" data-act="cbRun" data-id="${i}:${k}">Запустить</button>`}</div><pre>${esc(code.replace(/\n$/,''))}</pre></div>`;if(!open)k++}});
-  return h}
+P.forEach((p,j)=>{
+if(j%2===0){const s=p.replace(/^\n+|\n+$/g,'');if(s)h+='<div class="tx">'+esc(s).replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/^#{1,4} (.+)$/gm,'<b>$1</b>')+'</div>'}
+else{const nl=p.indexOf('\n'),lang=nl>=0?p.slice(0,nl).trim():'',code=nl>=0?p.slice(nl+1):'',open=j===P.length-1;
+h+=`<div class="cb"><div class="cbh"><span>${esc(lang||'код')}</span>${open?'':`<button class="tab" data-act="cbEdit" data-id="${i}:${k}">В редактор</button><button class="tab" data-act="cbRun" data-id="${i}:${k}">Запустить</button>`}</div><pre>${esc(code.replace(/\n$/,''))}</pre></div>`;if(!open)k++}});
+return h}
 function blocksOf(t){const P=t.split('```'),r=[];for(let j=1;j<P.length-1;j+=2){const p=P[j],nl=p.indexOf('\n');r.push({lang:nl>=0?p.slice(0,nl).trim().toLowerCase():'',code:nl>=0?p.slice(nl+1).replace(/\n$/,''):p})}return r}
 const msgHTML=(m,i,last)=>m.role==='user'?'<div class="mu">'+md(m.content,i)+'</div>':`<div class="ma"${last?' id="lastMsg"':''}>${m.content?md(m.content,i):'<span class="muted">Думаю…</span>'}</div>`;
 function vChats(){
-  LLM.init();
-  const c=UI.chatId&&curChat();
-  if(!c){UI.chatId=null;header('Чаты','<button class="btn pri" data-act="newChat">Новый чат</button>');
-    const list=S.chats.slice().sort((a,b)=>b.updated-a.updated);
-    V().innerHTML=modelPanel()+(list.length?`<div class="list">${list.map(c=>`<button class="row" data-act="openChat" data-id="${c.id}"><div class="rmain"><div class="rt">${esc(c.title)}</div><div class="rs">${c.msgs.length} ${plural(c.msgs.length,'сообщение','сообщения','сообщений')}, ${fmt(c.updated)}</div></div></button>`).join('')}</div>`
-      :empty('Чатов пока нет','Опишите задачу словами, и локальная модель напишет код. Его можно сразу запустить или открыть в редакторе.','<button class="btn pri" data-act="newChat">Начать чат</button>'));
-    wireModel();return}
-  header(c.title,'<button class="btn danger" data-act="delChat">Удалить</button>',true);
-  V().innerHTML=`<div class="chat">${LLM.state==='ready'?'<div class="mstat muted small"><span class="dot"></span>'+esc(mlabel())+'</div>':modelPanel()}
-    <div class="msgs" id="msgs"><div class="col">${c.msgs.length?c.msgs.map((m,i)=>msgHTML(m,i,i===c.msgs.length-1)).join(''):'<div class="muted hint">Например: «Напиши функцию на Python, которая считает расстояние между двумя точками по координатам».</div>'}</div></div>
-    <div class="comp"><textarea id="msg" rows="1" placeholder="Опишите, какой код нужен" aria-label="Сообщение">${esc(UI.draft)}</textarea><button class="btn pri" data-act="${UI.gen?'stopGen':'send'}">${UI.gen?'Остановить':'Отправить'}</button></div></div>`;
-  const ta=$('#msg'),fit=()=>{ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,innerHeight*0.4)+'px'};fit();
-  ta.addEventListener('input',()=>{UI.draft=ta.value;fit()});
-  ta.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();act('send')}});
-  const ms=$('#msgs');ms.scrollTop=ms.scrollHeight;wireModel()}
+LLM.init();
+const c=UI.chatId&&curChat();
+if(!c){UI.chatId=null;header('Чаты','<button class="btn pri" data-act="newChat">Новый чат</button>');
+const list=S.chats.slice().sort((a,b)=>b.updated-a.updated);
+V().innerHTML=modelPanel()+(list.length?`<div class="list">${list.map(c=>`<button class="row" data-act="openChat" data-id="${c.id}"><div class="rmain"><div class="rt">${esc(c.title)}</div><div class="rs">${c.msgs.length} ${plural(c.msgs.length,'сообщение','сообщения','сообщений')}, ${fmt(c.updated)}</div></div></button>`).join('')}</div>`
+:empty('Чатов пока нет','Опишите задачу словами, и локальная модель напишет код. Его можно сразу запустить или открыть в редакторе.','<button class="btn pri" data-act="newChat">Начать чат</button>'));
+wireModel();return}
+header(c.title,'<button class="btn danger" data-act="delChat">Удалить</button>',true);
+V().innerHTML=`<div class="chat">${LLM.state==='ready'?'<div class="mstat muted small"><span class="dot"></span>'+esc(mlabel())+'</div>':modelPanel()}
+<div class="msgs" id="msgs"><div class="col">${c.msgs.length?c.msgs.map((m,i)=>msgHTML(m,i,i===c.msgs.length-1)).join(''):'<div class="muted hint">Например: «Напиши функцию на Python, которая считает расстояние между двумя точками по координатам».</div>'}</div></div>
+<div class="comp"><textarea id="msg" rows="1" placeholder="Опишите, какой код нужен" aria-label="Сообщение">${esc(UI.draft)}</textarea><button class="btn pri" data-act="${UI.gen?'stopGen':'send'}">${UI.gen?'Остановить':'Отправить'}</button></div></div>`;
+const ta=$('#msg'),fit=()=>{ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,innerHeight*0.4)+'px'};fit();
+ta.addEventListener('input',()=>{UI.draft=ta.value;fit()});
+ta.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();act('send')}});
+const ms=$('#msgs');ms.scrollTop=ms.scrollHeight;wireModel()}
 function ctx(c){const h=c.msgs.slice(0,-1).map(m=>({role:m.role,content:m.content}));let n=0,i=h.length;
-  while(i>0&&(i===h.length||n+h[i-1].content.length<=6000)){n+=h[i-1].content.length;i--}
-  const r=h.slice(i);while(r.length>1&&r[0].role!=='user')r.shift();return[{role:'system',content:SYS},...r]}
+while(i>0&&(i===h.length||n+h[i-1].content.length<=6000)){n+=h[i-1].content.length;i--}
+const r=h.slice(i);while(r.length>1&&r[0].role!=='user')r.shift();return[{role:'system',content:SYS},...r]}
 async function send(c,text){
-  if(UI.gen)return;if(UI.pk){toast('Сейчас выполняется пакет задач');return}
-  c.msgs.push({role:'user',content:text});const m={role:'assistant',content:''};c.msgs.push(m);
-  if(c.title==='Новый чат')c.title=text.replace(/\s+/g,' ').slice(0,48);
-  c.updated=Date.now();UI.gen=true;save();if(UI.view==='chats'&&UI.chatId===c.id)render();
-  let raf=0;const upd=()=>{raf=0;const el=$('#lastMsg');if(el&&UI.view==='chats'&&UI.chatId===c.id){el.innerHTML=md(m.content,c.msgs.length-1);const ms=$('#msgs');if(ms&&ms.scrollHeight-ms.scrollTop-ms.clientHeight<160)ms.scrollTop=ms.scrollHeight}};
-  for(let at=0;at<2;at++){
-  try{try{await LLM.engine.resetChat()}catch(e){}const st=await LLM.engine.chat.completions.create({messages:ctx(c),stream:true,temperature:0.3,max_tokens:1200});
-    for await(const ch of st){const d=ch.choices&&ch.choices[0]&&ch.choices[0].delta&&ch.choices[0].delta.content||'';if(d){m.content+=d;if(!raf)raf=requestAnimationFrame(upd)}}break}
-  catch(e){const em=String(e&&e.message||e);if(!m.content.trim()&&at===0&&isDead(e)&&await LLM.recover())continue;if(!m.content.trim()||!isDead(e))m.content+='\n\n[Ошибка: '+em+']';break}}
-  if(!m.content.trim())m.content='[Пустой ответ]';
-  UI.gen=false;c.updated=Date.now();save();if(UI.view==='chats'&&UI.chatId===c.id)render()}
+if(UI.gen)return;if(UI.pk){toast('Сейчас выполняется пакет задач');return}
+c.msgs.push({role:'user',content:text});const m={role:'assistant',content:''};c.msgs.push(m);
+if(c.title==='Новый чат')c.title=text.replace(/\s+/g,' ').slice(0,48);
+c.updated=Date.now();UI.gen=true;save();if(UI.view==='chats'&&UI.chatId===c.id)render();
+let raf=0;const upd=()=>{raf=0;const el=$('#lastMsg');if(el&&UI.view==='chats'&&UI.chatId===c.id){el.innerHTML=md(m.content,c.msgs.length-1);const ms=$('#msgs');if(ms&&ms.scrollHeight-ms.scrollTop-ms.clientHeight<160)ms.scrollTop=ms.scrollHeight}};
+for(let at=0;at<2;at++){
+try{try{await LLM.engine.resetChat()}catch(e){}const st=await LLM.engine.chat.completions.create({messages:ctx(c),stream:true,temperature:0.3,max_tokens:1200,...GEN});
+for await(const ch of st){const d=ch.choices&&ch.choices[0]&&ch.choices[0].delta&&ch.choices[0].delta.content||'';if(d){m.content+=d;if(!raf)raf=requestAnimationFrame(upd)}}break}
+catch(e){const em=String(e&&e.message||e);if(!m.content.trim()&&at===0&&isDead(e)&&await LLM.recover())continue;if(!m.content.trim()||!isDead(e))m.content+='\n\n[Ошибка: '+em+']';break}}
+if(!m.content.trim())m.content='[Пустой ответ]';
+UI.gen=false;c.updated=Date.now();save();if(UI.view==='chats'&&UI.chatId===c.id)render()}
 function blockToEditor(id,runIt){
-  const c=curChat();if(!c)return;const[i,k]=id.split(':').map(Number),b=blocksOf(c.msgs[i].content)[k];if(!b)return;
-  const L={js:'js',javascript:'js',node:'js',py:'py',python:'py',python3:'py',html:'html',htm:'html'}[b.lang];
-  if(!L)toast(b.lang?'Язык «'+b.lang+'» здесь не запускается, открыт как JavaScript':'Язык не указан, открыт как JavaScript');
-  const l=L||'js';S.code={lang:l,name:'main.'+EXT[l],text:b.code,projectId:''};UI.lastHtml='';UI.log=[];save();UI.view='code';render();if(runIt&&L)run()}
+const c=curChat();if(!c)return;const[i,k]=id.split(':').map(Number),b=blocksOf(c.msgs[i].content)[k];if(!b)return;
+const L={js:'js',javascript:'js',node:'js',py:'py',python:'py',python3:'py',html:'html',htm:'html'}[b.lang];
+if(!L)toast(b.lang?'Язык «'+b.lang+'» здесь не запускается, открыт как JavaScript':'Язык не указан, открыт как JavaScript');
+const l=L||'js';S.code={lang:l,name:'main.'+EXT[l],text:b.code,projectId:''};UI.lastHtml='';UI.log=[];save();UI.view='code';render();if(runIt&&L)run()}
 function askAI(){
-  const errs=UI.log.filter(l=>l.t==='err').map(l=>l.s).join('\n'),L={js:'javascript',py:'python',html:'html'}[S.code.lang];
-  const q=(errs?'Исправь ошибку в коде.\n\nОшибка:\n'+errs.slice(0,1500):'Проверь этот код и предложи улучшения.')+'\n\nКод ('+S.code.name+'):\n```'+L+'\n'+S.code.text.slice(0,4000)+'\n```';
-  const c=newChat();UI.view='chats';
-  if(LLM.state==='ready'){render();send(c,q)}else{UI.draft=q;render();toast('Запустите модель, затем нажмите «Отправить»')}}
-
+const errs=UI.log.filter(l=>l.t==='err').map(l=>l.s).join('\n'),L={js:'javascript',py:'python',html:'html'}[S.code.lang];
+const q=(errs?'Исправь ошибку в коде.\n\nОшибка:\n'+errs.slice(0,1500):'Проверь этот код и предложи улучшения.')+'\n\nКод ('+S.code.name+'):\n```'+L+'\n'+S.code.text.slice(0,4000)+'\n```';
+const c=newChat();UI.view='chats';
+if(LLM.state==='ready'){render();send(c,q)}else{UI.draft=q;render();toast('Запустите модель, затем нажмите «Отправить»')}}
 /* Проекты */
 function vProjects(){
-  const p=UI.projectId&&proj(UI.projectId);
-  if(!p){UI.projectId=null;header('Проекты','<button class="btn" data-act="pkgNew">Из пакета</button><button class="btn pri" data-act="newProj">Новый проект</button>');
-    const list=S.projects.slice().sort((a,b)=>b.updated-a.updated);
-    V().innerHTML=list.length?`<div class="list">${list.map(p=>`<button class="row" data-proj="${p.id}"><div class="rmain"><div class="rt">${esc(p.name)}</div><div class="rs">${p.files.length} ${plural(p.files.length,'файл','файла','файлов')}, изменён ${fmt(p.updated)}</div></div></button>`).join('')}</div>`
-      :empty('Проектов пока нет','Проект хранит файлы, описание и, позже, пакеты задач от Claude.','<button class="btn pri" data-act="newProj">Создать проект</button>');
-    return}
-  header(p.name,'<button class="btn" data-act="renameProj">Переименовать</button><button class="btn danger" data-act="delProj">Удалить</button>',true);
-  V().innerHTML=`<div class="wrap">
-    <label class="lbl" for="pdesc">Описание</label>
-    <textarea id="pdesc" class="desc" placeholder="Цель проекта, заметки">${esc(p.desc||'')}</textarea>
-    <div class="hrow"><h2>Файлы</h2><button class="btn" data-act="newFile">Новый файл</button></div>
-    <div class="list">${p.files.length?p.files.map(f=>`<div class="row"><button class="rmain" data-act="openFile" data-id="${f.id}"><div class="rt">${esc(f.name)}</div><div class="rs">${LANGN[langOf(f.name)]}, ${f.text.split('\n').length} строк</div></button><button class="icon-btn" data-act="delFile" data-id="${f.id}" aria-label="Удалить файл">✕</button></div>`).join(''):'<div class="muted pad">Файлов пока нет</div>'}</div>
-    ${pkgSection(p)}
-  </div>`;
-  $('#pdesc').addEventListener('input',e=>{p.desc=e.target.value;touch(p)});
-  document.querySelectorAll('details[data-t]').forEach(d=>d.addEventListener('toggle',()=>{if(d.open)UI.openT.add(d.dataset.t);else UI.openT.delete(d.dataset.t)}));
-  const pt=$('#pkgText');pt.value=UI.pkgDraft;pt.addEventListener('input',()=>{UI.pkgDraft=pt.value});
+const p=UI.projectId&&proj(UI.projectId);
+if(!p){UI.projectId=null;header('Проекты','<button class="btn" data-act="pkgNew">Из пакета</button><button class="btn pri" data-act="newProj">Новый проект</button>');
+const list=S.projects.slice().sort((a,b)=>b.updated-a.updated);
+V().innerHTML=list.length?`<div class="list">${list.map(p=>`<button class="row" data-proj="${p.id}"><div class="rmain"><div class="rt">${esc(p.name)}</div><div class="rs">${p.files.length} ${plural(p.files.length,'файл','файла','файлов')}, изменён ${fmt(p.updated)}</div></div></button>`).join('')}</div>`
+:empty('Проектов пока нет','Проект хранит файлы, описание и, позже, пакеты задач от Claude.','<button class="btn pri" data-act="newProj">Создать проект</button>');
+return}
+header(p.name,'<button class="btn" data-act="renameProj">Переименовать</button><button class="btn danger" data-act="delProj">Удалить</button>',true);
+V().innerHTML=`<div class="wrap">
+<label class="lbl" for="pdesc">Описание</label>
+<textarea id="pdesc" class="desc" placeholder="Цель проекта, заметки">${esc(p.desc||'')}</textarea>
+<div class="hrow"><h2>Файлы</h2><button class="btn" data-act="newFile">Новый файл</button></div>
+<div class="list">${p.files.length?p.files.map(f=>`<div class="row"><button class="rmain" data-act="openFile" data-id="${f.id}"><div class="rt">${esc(f.name)}</div><div class="rs">${LANGN[langOf(f.name)]}, ${f.text.split('\n').length} строк</div></button><button class="icon-btn" data-act="delFile" data-id="${f.id}" aria-label="Удалить файл">✕</button></div>`).join(''):'<div class="muted pad">Файлов пока нет</div>'}</div>
+${pkgSection(p)}
+</div>`;
+$('#pdesc').addEventListener('input',e=>{p.desc=e.target.value;touch(p)});
+document.querySelectorAll('details[data-t]').forEach(d=>d.addEventListener('toggle',()=>{if(d.open)UI.openT.add(d.dataset.t);else UI.openT.delete(d.dataset.t)}));
+const pt=$('#pkgText');pt.value=UI.pkgDraft;pt.addEventListener('input',()=>{UI.pkgDraft=pt.value});
 }
 function openFile(p,f){if(!f)return;S.code={lang:langOf(f.name),name:f.name,text:f.text,projectId:p.id};save();go('code')}
-
 /* Запуск кода */
 const JS_WORKER=`const fm=a=>a.map(x=>{if(typeof x==='string')return x;try{const j=JSON.stringify(x,null,2);return j===undefined?String(x):j}catch(e){return String(x)}}).join(' ');
 console.log=(...a)=>postMessage({t:'out',s:fm(a)});console.info=console.log;
@@ -351,160 +347,151 @@ const PY_WORKER=`importScripts('${PY_URL}pyodide.js');let py;
 const ready=loadPyodide({indexURL:'${PY_URL}',stdout:s=>postMessage({t:'out',s:s}),stderr:s=>postMessage({t:'err',s:s})}).then(p=>{py=p;postMessage({t:'ready'})},e=>postMessage({t:'fatal',s:String(e)}));
 onmessage=async e=>{await ready;if(!py){postMessage({t:'done'});return}const c=typeof e.data==='string'?e.data:e.data.code,g=e.data&&e.data.fresh?py.globals.get('dict')():null;try{await py.loadPackagesFromImports(c);const r=await py.runPythonAsync(c,g?{globals:g}:undefined);if(r!==undefined&&r!==null)postMessage({t:'ret',s:String(r)})}catch(err){postMessage({t:'err',s:String(err&&err.message||err)})}postMessage({t:'done'})};`;
 const blobURL=s=>URL.createObjectURL(new Blob([s],{type:'text/javascript'}));
-
 function out(t,s){UI.log.push({t,s:String(s)});if(UI.log.length>1000)UI.log.shift();const c=$('#console');if(c){const d=document.createElement('div');d.className='ln '+t;d.textContent=String(s);c.appendChild(d);c.scrollTop=c.scrollHeight}}
 function renderConsole(){const c=$('#console');if(!c)return;c.innerHTML='';UI.log.forEach(l=>{const d=document.createElement('div');d.className='ln '+l.t;d.textContent=l.s;c.appendChild(d)});c.scrollTop=c.scrollHeight}
-
 let jsW=null;
 function runJS(code,sink=out){return new Promise(res=>{
-  jsW=new Worker(blobURL(JS_WORKER));const w=jsW;
-  const fin=()=>{clearTimeout(t);w.terminate();if(jsW===w)jsW=null;res()};
-  const t=setTimeout(()=>{sink('err','Остановлено: выполнение дольше 10 секунд');fin()},10000);
-  w.onmessage=e=>{if(e.data.t==='done')fin();else sink(e.data.t,e.data.s)};
-  w.onerror=e=>{sink('err',e.message||'Ошибка выполнения');fin()};
-  w._fin=fin;w.postMessage(code)})}
-
+jsW=new Worker(blobURL(JS_WORKER));const w=jsW;
+const fin=()=>{clearTimeout(t);w.terminate();if(jsW===w)jsW=null;res()};
+const t=setTimeout(()=>{sink('err','Остановлено: выполнение дольше 10 секунд');fin()},10000);
+w.onmessage=e=>{if(e.data.t==='done')fin();else sink(e.data.t,e.data.s)};
+w.onerror=e=>{sink('err',e.message||'Ошибка выполнения');fin()};
+w._fin=fin;w.postMessage(code)})}
 let pyW=null,pyReady=null,pyDone=null,pySink=null;
 function ensurePy(){
-  if(pyReady)return pyReady;
-  out('info','Загружаю Python. Это нужно только при первом запуске, около 10 МБ.');
-  const viaSW=UI.pyCached&&navigator.serviceWorker&&navigator.serviceWorker.controller;pyW=new Worker(viaSW?'./lk-py-worker.js':blobURL(PY_WORKER));
-  pyReady=new Promise((res,rej)=>{
-    pyW.onmessage=e=>{const d=e.data;if(d.t==='ready'){out('info','Python готов');res()}else if(d.t==='fatal')rej(d.s);else if(d.t==='done'){if(pyDone)pyDone()}else(pySink||out)(d.t,d.s)};
-    pyW.onerror=e=>rej(e.message||'ошибка загрузки')});
-  pyReady.catch(()=>{UI.pyCached=false;if(pyW)pyW.terminate();pyW=null;pyReady=null});
-  return pyReady}
+if(pyReady)return pyReady;
+out('info','Загружаю Python. Это нужно только при первом запуске, около 10 МБ.');
+const viaSW=UI.pyCached&&navigator.serviceWorker&&navigator.serviceWorker.controller;pyW=new Worker(viaSW?'./lk-py-worker.js':blobURL(PY_WORKER));
+pyReady=new Promise((res,rej)=>{
+pyW.onmessage=e=>{const d=e.data;if(d.t==='ready'){out('info','Python готов');res()}else if(d.t==='fatal')rej(d.s);else if(d.t==='done'){if(pyDone)pyDone()}else(pySink||out)(d.t,d.s)};
+pyW.onerror=e=>rej(e.message||'ошибка загрузки')});
+pyReady.catch(()=>{UI.pyCached=false;if(pyW)pyW.terminate();pyW=null;pyReady=null});
+return pyReady}
 function killPy(){if(pyW)pyW.terminate();pyW=null;pyReady=null;if(pyDone){const d=pyDone;pyDone=null;d()}}
 async function runPy(code,sink=out,fresh=false){
-  try{await ensurePy()}catch(e){sink('err','Не удалось загрузить Python: '+e+'. При первом запуске нужен интернет.');return}
-  return new Promise(res=>{
-    const t=setTimeout(()=>{sink('err','Остановлено: дольше 30 секунд. Python будет перезагружен.');killPy()},30000);
-    pySink=sink;pyDone=()=>{clearTimeout(t);pyDone=null;pySink=null;res()};
-    pyW.postMessage(fresh?{code,fresh:true}:code)})}
-
+try{await ensurePy()}catch(e){sink('err','Не удалось загрузить Python: '+e+'. При первом запуске нужен интернет.');return}
+return new Promise(res=>{
+const t=setTimeout(()=>{sink('err','Остановлено: дольше 30 секунд. Python будет перезагружен.');killPy()},30000);
+pySink=sink;pyDone=()=>{clearTimeout(t);pyDone=null;pySink=null;res()};
+pyW.postMessage(fresh?{code,fresh:true}:code)})}
 const HOOK=`<script>(function(){var f=function(a){return Array.prototype.map.call(a,function(x){if(typeof x==='string')return x;try{return JSON.stringify(x)}catch(e){return String(x)}}).join(' ')};var p=function(t,a){parent.postMessage({lk:1,t:t,s:f(a)},'*')};var o=console.log;console.log=console.info=function(){p('out',arguments);o.apply(console,arguments)};console.warn=function(){p('warn',arguments)};console.error=function(){p('err',arguments)};addEventListener('error',function(e){p('err',[e.message+' (строка '+e.lineno+')'])})})()<\/script>`;
 const withHook=h=>/<head[^>]*>/i.test(h)?h.replace(/<head[^>]*>/i,m=>m+HOOK):HOOK+h;
 addEventListener('message',e=>{const f=$('#preview');if(e.data&&e.data.lk&&f&&e.source===f.contentWindow)out(e.data.t,e.data.s)});
-
 function setRunning(b){UI.running=b;const r=$('#runBtn');if(r){r.textContent=b?'Остановить':'Запустить';r.dataset.act=b?'stop':'run';r.classList.toggle('danger',b)}}
 function setTab(t){UI.tab=t;document.querySelectorAll('.out .tab[data-act="tab"]').forEach(b=>b.classList.toggle('on',b.dataset.id===t));const c=$('#console'),p=$('#preview');if(c)c.classList.toggle('hidden',t!=='console');if(p)p.classList.toggle('hidden',t!=='preview')}
 async function run(){
-  if(UI.running)return;
-  const {lang,text}=S.code;UI.log=[];renderConsole();
-  if(lang==='html'){UI.lastHtml=withHook(text);const f=$('#preview');if(f)f.srcdoc=UI.lastHtml;setTab('preview');out('info','Страница открыта во вкладке «Просмотр». Вывод console.log появится здесь.');return}
-  setTab('console');setRunning(true);const t0=performance.now();
-  if(lang==='js')await runJS(text);else await runPy(text);
-  out('info','Готово за '+((performance.now()-t0)/1000).toFixed(2)+' с');setRunning(false)}
+if(UI.running)return;
+const {lang,text}=S.code;UI.log=[];renderConsole();
+if(lang==='html'){UI.lastHtml=withHook(text);const f=$('#preview');if(f)f.srcdoc=UI.lastHtml;setTab('preview');out('info','Страница открыта во вкладке «Просмотр». Вывод console.log появится здесь.');return}
+setTab('console');setRunning(true);const t0=performance.now();
+if(lang==='js')await runJS(text);else await runPy(text);
+out('info','Готово за '+((performance.now()-t0)/1000).toFixed(2)+' с');setRunning(false)}
 function stopRun(){if(jsW&&jsW._fin){out('err','Остановлено вручную');jsW._fin()}if(pyDone){out('err','Остановлено вручную. Python будет перезагружен.');killPy()}}
-
 /* Код */
 function vCode(){
-  const c=S.code;
-  header('Код','<button class="btn" data-act="saveFile">В проект</button><button class="btn" data-act="saveArt">В артефакты</button><button class="btn" data-act="newCode">Очистить</button>');
-  V().innerHTML=`<div class="code">
-    <div class="bar">
-      <input id="fname" class="fname" value="${esc(c.name)}" spellcheck="false" autocapitalize="off" autocorrect="off" aria-label="Имя файла">
-      <select id="lang" aria-label="Язык">${Object.keys(LANGN).map(k=>`<option value="${k}" ${k===c.lang?'selected':''}>${LANGN[k]}</option>`).join('')}</select>
-      <select id="cproj" aria-label="Проект"><option value="">Без проекта</option>${S.projects.map(p=>`<option value="${p.id}" ${p.id===c.projectId?'selected':''}>${esc(p.name)}</option>`).join('')}</select>
-      <span class="grow"></span>
-      <button class="btn pri" id="runBtn" data-act="run">Запустить</button>
-    </div>
-    <div class="split">
-      <textarea id="ed" class="ed" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off" aria-label="Редактор кода">${esc(c.text)}</textarea>
-      <div class="out">
-        <div class="tabs"><button class="tab" data-act="tab" data-id="console">Консоль</button><button class="tab" data-act="tab" data-id="preview">Просмотр</button><span class="grow"></span><button class="tab" data-act="askAI">Спросить нейросеть</button><button class="tab" data-act="clear">Очистить вывод</button></div>
-        <div id="console" class="console"></div>
-        <iframe id="preview" class="preview" sandbox="allow-scripts allow-modals allow-forms" title="Просмотр страницы"></iframe>
-      </div>
-    </div></div>`;
-  const ed=$('#ed');
-  ed.addEventListener('input',()=>{S.code.text=ed.value;save()});
-  ed.addEventListener('keydown',e=>{
-    if(e.key==='Tab'){e.preventDefault();ed.setRangeText('  ',ed.selectionStart,ed.selectionEnd,'end');S.code.text=ed.value;save()}
-    if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();run()}});
-  $('#fname').addEventListener('change',e=>{const n=e.target.value.trim();S.code.name=n;if(/\.(js|py|html?)$/i.test(n)){const l=langOf(n);if(l!==S.code.lang){S.code.lang=l;$('#lang').value=l}}save()});
-  $('#lang').addEventListener('change',e=>{const l=e.target.value,wasSample=!S.code.text.trim()||Object.values(SAMPLE).includes(S.code.text);S.code.lang=l;S.code.name=(S.code.name.replace(/\.[^.]*$/,'')||'main')+'.'+EXT[l];if(wasSample)S.code.text=SAMPLE[l];save();render()});
-  $('#cproj').addEventListener('change',e=>{S.code.projectId=e.target.value;save()});
-  renderConsole();setTab(UI.tab);
-  if(UI.lastHtml)$('#preview').srcdoc=UI.lastHtml;
-  setRunning(UI.running);
+const c=S.code;
+header('Код','<button class="btn" data-act="saveFile">В проект</button><button class="btn" data-act="saveArt">В артефакты</button><button class="btn" data-act="newCode">Очистить</button>');
+V().innerHTML=`<div class="code">
+<div class="bar">
+<input id="fname" class="fname" value="${esc(c.name)}" spellcheck="false" autocapitalize="off" autocorrect="off" aria-label="Имя файла">
+<select id="lang" aria-label="Язык">${Object.keys(LANGN).map(k=>`<option value="${k}" ${k===c.lang?'selected':''}>${LANGN[k]}</option>`).join('')}</select>
+<select id="cproj" aria-label="Проект"><option value="">Без проекта</option>${S.projects.map(p=>`<option value="${p.id}" ${p.id===c.projectId?'selected':''}>${esc(p.name)}</option>`).join('')}</select>
+<span class="grow"></span>
+<button class="btn pri" id="runBtn" data-act="run">Запустить</button>
+</div>
+<div class="split">
+<textarea id="ed" class="ed" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off" aria-label="Редактор кода">${esc(c.text)}</textarea>
+<div class="out">
+<div class="tabs"><button class="tab" data-act="tab" data-id="console">Консоль</button><button class="tab" data-act="tab" data-id="preview">Просмотр</button><span class="grow"></span><button class="tab" data-act="askAI">Спросить нейросеть</button><button class="tab" data-act="clear">Очистить вывод</button></div>
+<div id="console" class="console"></div>
+<iframe id="preview" class="preview" sandbox="allow-scripts allow-modals allow-forms" title="Просмотр страницы"></iframe>
+</div>
+</div></div>`;
+const ed=$('#ed');
+ed.addEventListener('input',()=>{S.code.text=ed.value;save()});
+ed.addEventListener('keydown',e=>{
+if(e.key==='Tab'){e.preventDefault();ed.setRangeText('  ',ed.selectionStart,ed.selectionEnd,'end');S.code.text=ed.value;save()}
+if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();run()}});
+$('#fname').addEventListener('change',e=>{const n=e.target.value.trim();S.code.name=n;if(/\.(js|py|html?)$/i.test(n)){const l=langOf(n);if(l!==S.code.lang){S.code.lang=l;$('#lang').value=l}}save()});
+$('#lang').addEventListener('change',e=>{const l=e.target.value,wasSample=!S.code.text.trim()||Object.values(SAMPLE).includes(S.code.text);S.code.lang=l;S.code.name=(S.code.name.replace(/\.[^.]*$/,'')||'main')+'.'+EXT[l];if(wasSample)S.code.text=SAMPLE[l];save();render()});
+$('#cproj').addEventListener('change',e=>{S.code.projectId=e.target.value;save()});
+renderConsole();setTab(UI.tab);
+if(UI.lastHtml)$('#preview').srcdoc=UI.lastHtml;
+setRunning(UI.running);
 }
 function saveFile(){
-  let pid=S.code.projectId,created=false;
-  if(!pid||!proj(pid)){
-    if(!S.projects.length){const n=(prompt('Проектов пока нет. Название нового проекта:')||'').trim();if(!n)return;pid=S.code.projectId=newProject(n).id;created=true}
-    else return toast('Выберите проект в списке над редактором')}
-  const p=proj(pid),name=S.code.name.trim()||('main.'+EXT[S.code.lang]);
-  const f=p.files.find(f=>f.name===name);if(f)f.text=S.code.text;else p.files.push({id:uid(),name,text:S.code.text});
-  touch(p);if(created)render();else renderNav();toast('Сохранено: '+name+' в «'+p.name+'»')}
+let pid=S.code.projectId,created=false;
+if(!pid||!proj(pid)){
+if(!S.projects.length){const n=(prompt('Проектов пока нет. Название нового проекта:')||'').trim();if(!n)return;pid=S.code.projectId=newProject(n).id;created=true}
+else return toast('Выберите проект в списке над редактором')}
+const p=proj(pid),name=S.code.name.trim()||('main.'+EXT[S.code.lang]);
+const f=p.files.find(f=>f.name===name);if(f)f.text=S.code.text;else p.files.push({id:uid(),name,text:S.code.text});
+touch(p);if(created)render();else renderNav();toast('Сохранено: '+name+' в «'+p.name+'»')}
 function saveArt(){
-  const n=(prompt('Название артефакта',S.code.name)||'').trim();if(!n)return;
-  S.artifacts.unshift({id:uid(),name:n,fileName:S.code.name||('main.'+EXT[S.code.lang]),lang:S.code.lang,text:S.code.text,created:Date.now()});
-  save();toast('Добавлено в артефакты')}
-
+const n=(prompt('Название артефакта',S.code.name)||'').trim();if(!n)return;
+S.artifacts.unshift({id:uid(),name:n,fileName:S.code.name||('main.'+EXT[S.code.lang]),lang:S.code.lang,text:S.code.text,created:Date.now()});
+save();toast('Добавлено в артефакты')}
 /* Артефакты */
 function vArts(){
-  const r=UI.artifactId&&art();
-  if(!r){UI.artifactId=null;header('Артефакты','');
-    V().innerHTML=S.artifacts.length?`<div class="list">${S.artifacts.map(a=>`<button class="row" data-act="openArt" data-id="${a.id}"><div class="rmain"><div class="rt">${esc(a.name)}</div><div class="rs">${LANGN[a.lang]}, ${fmt(a.created)}</div></div></button>`).join('')}</div>`
-      :empty('Артефактов пока нет','Сохраняйте удачный код из редактора кнопкой «В артефакты», и он появится здесь.','<button class="btn pri" data-go="code">Открыть редактор</button>');
-    return}
-  header(r.name,'<button class="btn" data-act="artCode">В редактор</button><button class="btn" data-act="artDown">Скачать</button><button class="btn" data-act="artCopy">Копировать</button><button class="btn danger" data-act="artDel">Удалить</button>',true);
-  const isH=r.lang==='html',tab=isH?UI.artTab:'code';
-  V().innerHTML=`<div class="art">${isH?`<div class="tabs"><button class="tab ${tab==='preview'?'on':''}" data-act="artTab" data-id="preview">Просмотр</button><button class="tab ${tab==='code'?'on':''}" data-act="artTab" data-id="code">Код</button></div>`:''}${tab==='preview'?`<iframe class="preview" id="artFrame" sandbox="allow-scripts allow-modals allow-forms" title="${esc(r.name)}"></iframe>`:`<pre>${esc(r.text)}</pre>`}</div>`;
-  const fr=$('#artFrame');if(fr)fr.srcdoc=r.text}
-
+const r=UI.artifactId&&art();
+if(!r){UI.artifactId=null;header('Артефакты','');
+V().innerHTML=S.artifacts.length?`<div class="list">${S.artifacts.map(a=>`<button class="row" data-act="openArt" data-id="${a.id}"><div class="rmain"><div class="rt">${esc(a.name)}</div><div class="rs">${LANGN[a.lang]}, ${fmt(a.created)}</div></div></button>`).join('')}</div>`
+:empty('Артефактов пока нет','Сохраняйте удачный код из редактора кнопкой «В артефакты», и он появится здесь.','<button class="btn pri" data-go="code">Открыть редактор</button>');
+return}
+header(r.name,'<button class="btn" data-act="artCode">В редактор</button><button class="btn" data-act="artDown">Скачать</button><button class="btn" data-act="artCopy">Копировать</button><button class="btn danger" data-act="artDel">Удалить</button>',true);
+const isH=r.lang==='html',tab=isH?UI.artTab:'code';
+V().innerHTML=`<div class="art">${isH?`<div class="tabs"><button class="tab ${tab==='preview'?'on':''}" data-act="artTab" data-id="preview">Просмотр</button><button class="tab ${tab==='code'?'on':''}" data-act="artTab" data-id="code">Код</button></div>`:''}${tab==='preview'?`<iframe class="preview" id="artFrame" sandbox="allow-scripts allow-modals allow-forms" title="${esc(r.name)}"></iframe>`:`<pre>${esc(r.text)}</pre>`}</div>`;
+const fr=$('#artFrame');if(fr)fr.srcdoc=r.text}
 /* Действия */
 function act(a,id){
-  const p=UI.projectId?proj(UI.projectId):null,r=art();
-  switch(a){
-  case'newProj':{const n=(prompt('Название проекта')||'').trim();if(!n)return;UI.projectId=newProject(n).id;UI.view='projects';render();break}
-  case'renameProj':{const n=(prompt('Новое название',p.name)||'').trim();if(n){p.name=n;touch(p);render()}break}
-  case'delProj':if(confirm('Удалить проект «'+p.name+'» со всеми файлами?')){S.projects=S.projects.filter(x=>x!==p);if(S.code.projectId===p.id)S.code.projectId='';UI.projectId=null;save();render()}break;
-  case'newFile':{const n=(prompt('Имя файла, например app.js, main.py или index.html','main.py')||'').trim();if(!n)return;if(p.files.some(f=>f.name===n))return toast('Такой файл уже есть');const f={id:uid(),name:n,text:SAMPLE[langOf(n)]};p.files.push(f);touch(p);openFile(p,f);break}
-  case'openFile':openFile(p,p.files.find(f=>f.id===id));break;
-  case'delFile':{const f=p.files.find(f=>f.id===id);if(f&&confirm('Удалить файл '+f.name+'?')){p.files=p.files.filter(x=>x!==f);touch(p);render()}break}
-  case'run':run();break;
-  case'stop':stopRun();break;
-  case'clear':{UI.log=[];renderConsole();break}
-  case'tab':setTab(id);break;
-  case'newCode':if(confirm('Очистить редактор? Несохранённый код пропадёт.')){const l=S.code.lang;S.code={lang:l,name:'main.'+EXT[l],text:SAMPLE[l],projectId:S.code.projectId};UI.lastHtml='';UI.log=[];save();render()}break;
-  case'saveFile':saveFile();break;
-  case'saveArt':saveArt();break;
-  case'back':if(UI.view==='projects')UI.projectId=null;else if(UI.view==='chats')UI.chatId=null;else UI.artifactId=null;render();break;
-  case'newChat':newChat();UI.view='chats';render();break;
-  case'openChat':UI.chatId=id;render();break;
-  case'delChat':{const c=curChat();if(UI.gen)return toast('Дождитесь окончания ответа');if(c&&confirm('Удалить чат «'+c.title+'»?')){S.chats=S.chats.filter(x=>x!==c);UI.chatId=null;save();render()}break}
-  case'send':{const c=curChat(),t=(UI.draft||'').trim();if(!c||!t)return;if(LLM.state!=='ready')return toast('Сначала запустите модель');UI.draft='';send(c,t);break}
-  case'stopGen':if(LLM.engine)LLM.engine.interruptGenerate();break;
-  case'llmLoad':{const s=$('#msel');LLM.load(s?s.value:LLM.def);break}
-  case'llmInit':LLM.init();break;
-  case'cbEdit':blockToEditor(id,false);break;
-  case'cbRun':blockToEditor(id,true);break;
-  case'askAI':askAI();break;
-  case'pkgNew':UI.pkgNew=true;$('#pkgInput').click();break;
-  case'pkgFile':UI.pkgNew=false;$('#pkgInput').click();break;
-  case'pkgPaste':{const t=UI.pkgDraft||'';if(!t.trim())return toast('Вставьте текст пакета');try{parsePackage(t);UI.pkgDraft='';addPackage(t,false)}catch(err){toast('Пакет не принят: '+err.message)}break}
-  case'pkgRun':{const k=(p.packages||[]).find(x=>x.id===id);if(k)runPackage(p,k);break}
-  case'pkgStop':if(UI.pk){UI.pk.stop=true;if(LLM.engine)LLM.engine.interruptGenerate();stopRun();toast('Останавливаю')}break;
-  case'pkgReset':{const k=(p.packages||[]).find(x=>x.id===id);if(!k||(UI.pk&&UI.pk.id===k.id))return;if(confirm('Сбросить статусы задач пакета? Файлы останутся.')){k.tasks.forEach(t=>{t.status='pending';t.log=[];t.stage='';t.lastError=''});touch(p);render()}break}
-  case'pkgDel':{const k=(p.packages||[]).find(x=>x.id===id);if(!k)return;if(UI.pk&&UI.pk.id===k.id)return toast('Сначала остановите выполнение');if(confirm('Удалить пакет «'+k.name+'»? Файлы проекта останутся.')){p.packages=p.packages.filter(x=>x!==k);touch(p);render()}break}
-  case'pkgBuild':{const k=(p.packages||[]).find(x=>x.id===id);if(k)pkgBuild(p,k);break}
-  case'pkgReport':{const k=(p.packages||[]).find(x=>x.id===id);if(k)pkgReport(p,k);break}
-  case'taskOpen':{const c=id.indexOf(':'),k=(p.packages||[]).find(x=>x.id===id.slice(0,c)),t=k&&k.tasks.find(x=>x.id===id.slice(c+1)),f=t&&p.files.find(f=>f.name===t.file);if(f)openFile(p,f);break}
-  case'openArt':UI.artifactId=id;UI.artTab='preview';render();break;
-  case'artTab':UI.artTab=id;render();break;
-  case'artCode':S.code={lang:r.lang,name:r.fileName,text:r.text,projectId:''};UI.lastHtml='';save();go('code');break;
-  case'artDown':download(r.fileName,r.text,r.lang==='html'?'text/html':'text/plain');break;
-  case'artCopy':navigator.clipboard.writeText(r.text).then(()=>toast('Скопировано'),()=>toast('Не удалось скопировать'));break;
-  case'artDel':if(confirm('Удалить артефакт «'+r.name+'»?')){S.artifacts=S.artifacts.filter(x=>x!==r);UI.artifactId=null;save();render()}break;
-  }}
+const p=UI.projectId?proj(UI.projectId):null,r=art();
+switch(a){
+case'newProj':{const n=(prompt('Название проекта')||'').trim();if(!n)return;UI.projectId=newProject(n).id;UI.view='projects';render();break}
+case'renameProj':{const n=(prompt('Новое название',p.name)||'').trim();if(n){p.name=n;touch(p);render()}break}
+case'delProj':if(confirm('Удалить проект «'+p.name+'» со всеми файлами?')){S.projects=S.projects.filter(x=>x!==p);if(S.code.projectId===p.id)S.code.projectId='';UI.projectId=null;save();render()}break;
+case'newFile':{const n=(prompt('Имя файла, например app.js, main.py или index.html','main.py')||'').trim();if(!n)return;if(p.files.some(f=>f.name===n))return toast('Такой файл уже есть');const f={id:uid(),name:n,text:SAMPLE[langOf(n)]};p.files.push(f);touch(p);openFile(p,f);break}
+case'openFile':openFile(p,p.files.find(f=>f.id===id));break;
+case'delFile':{const f=p.files.find(f=>f.id===id);if(f&&confirm('Удалить файл '+f.name+'?')){p.files=p.files.filter(x=>x!==f);touch(p);render()}break}
+case'run':run();break;
+case'stop':stopRun();break;
+case'clear':{UI.log=[];renderConsole();break}
+case'tab':setTab(id);break;
+case'newCode':if(confirm('Очистить редактор? Несохранённый код пропадёт.')){const l=S.code.lang;S.code={lang:l,name:'main.'+EXT[l],text:SAMPLE[l],projectId:S.code.projectId};UI.lastHtml='';UI.log=[];save();render()}break;
+case'saveFile':saveFile();break;
+case'saveArt':saveArt();break;
+case'back':if(UI.view==='projects')UI.projectId=null;else if(UI.view==='chats')UI.chatId=null;else UI.artifactId=null;render();break;
+case'newChat':newChat();UI.view='chats';render();break;
+case'openChat':UI.chatId=id;render();break;
+case'delChat':{const c=curChat();if(UI.gen)return toast('Дождитесь окончания ответа');if(c&&confirm('Удалить чат «'+c.title+'»?')){S.chats=S.chats.filter(x=>x!==c);UI.chatId=null;save();render()}break}
+case'send':{const c=curChat(),t=(UI.draft||'').trim();if(!c||!t)return;if(LLM.state!=='ready')return toast('Сначала запустите модель');UI.draft='';send(c,t);break}
+case'stopGen':if(LLM.engine)LLM.engine.interruptGenerate();break;
+case'llmLoad':{const s=$('#msel');LLM.load(s?s.value:LLM.def);break}
+case'llmInit':LLM.init();break;
+case'cbEdit':blockToEditor(id,false);break;
+case'cbRun':blockToEditor(id,true);break;
+case'askAI':askAI();break;
+case'pkgNew':UI.pkgNew=true;$('#pkgInput').click();break;
+case'pkgFile':UI.pkgNew=false;$('#pkgInput').click();break;
+case'pkgPaste':{const t=UI.pkgDraft||'';if(!t.trim())return toast('Вставьте текст пакета');try{parsePackage(t);UI.pkgDraft='';addPackage(t,false)}catch(err){toast('Пакет не принят: '+err.message)}break}
+case'pkgRun':{const k=(p.packages||[]).find(x=>x.id===id);if(k)runPackage(p,k);break}
+case'pkgStop':if(UI.pk){UI.pk.stop=true;if(LLM.engine)LLM.engine.interruptGenerate();stopRun();toast('Останавливаю')}break;
+case'pkgReset':{const k=(p.packages||[]).find(x=>x.id===id);if(!k||(UI.pk&&UI.pk.id===k.id))return;if(confirm('Сбросить статусы задач пакета? Файлы останутся.')){k.tasks.forEach(t=>{t.status='pending';t.log=[];t.stage='';t.lastError='';t.code=''});touch(p);render()}break}
+case'pkgDel':{const k=(p.packages||[]).find(x=>x.id===id);if(!k)return;if(UI.pk&&UI.pk.id===k.id)return toast('Сначала остановите выполнение');if(confirm('Удалить пакет «'+k.name+'»? Файлы проекта останутся.')){p.packages=p.packages.filter(x=>x!==k);touch(p);render()}break}
+case'pkgBuild':{const k=(p.packages||[]).find(x=>x.id===id);if(k)pkgBuild(p,k);break}
+case'pkgReport':{const k=(p.packages||[]).find(x=>x.id===id);if(k)pkgReport(p,k);break}
+case'taskOpen':{const c=id.indexOf(':'),k=(p.packages||[]).find(x=>x.id===id.slice(0,c)),t=k&&k.tasks.find(x=>x.id===id.slice(c+1)),f=t&&p.files.find(f=>f.name===t.file);if(f)openFile(p,f);break}
+case'openArt':UI.artifactId=id;UI.artTab='preview';render();break;
+case'artTab':UI.artTab=id;render();break;
+case'artCode':S.code={lang:r.lang,name:r.fileName,text:r.text,projectId:''};UI.lastHtml='';save();go('code');break;
+case'artDown':download(r.fileName,r.text,r.lang==='html'?'text/html':'text/plain');break;
+case'artCopy':navigator.clipboard.writeText(r.text).then(()=>toast('Скопировано'),()=>toast('Не удалось скопировать'));break;
+case'artDel':if(confirm('Удалить артефакт «'+r.name+'»?')){S.artifacts=S.artifacts.filter(x=>x!==r);UI.artifactId=null;save();render()}break;
+}}
 document.addEventListener('click',e=>{
-  const b=e.target.closest('[data-go],[data-proj],[data-act]');if(!b)return;
-  if(b.dataset.go)go(b.dataset.go);
-  else if(b.dataset.proj){UI.projectId=b.dataset.proj;UI.view='projects';closeDrawer();render()}
-  else act(b.dataset.act,b.dataset.id)});
-
+const b=e.target.closest('[data-go],[data-proj],[data-act]');if(!b)return;
+if(b.dataset.go)go(b.dataset.go);
+else if(b.dataset.proj){UI.projectId=b.dataset.proj;UI.view='projects';closeDrawer();render()}
+else act(b.dataset.act,b.dataset.id)});
 /* Пакеты задач и оркестратор */
 const MAPL={js:'js',javascript:'js',node:'js',py:'py',python:'py',python3:'py',html:'html',htm:'html'};
 const LN={js:'javascript',py:'python',html:'html'};
@@ -512,145 +499,144 @@ const STI={pending:'○',running:'◐',done:'✓',failed:'✕',skipped:'–'};
 const STN={pending:'ожидает',done:'готово',failed:'не прошло проверки',skipped:'пропущено'};
 function topo(ts){const r=[],st={};const v=t=>{if(st[t.id]===2)return;if(st[t.id]===1)throw new Error('циклическая зависимость у задачи '+t.id);st[t.id]=1;t.depends.forEach(d=>{const x=ts.find(y=>y.id===d);if(x)v(x)});st[t.id]=2;r.push(t)};ts.forEach(v);return r}
 function parsePackage(txt){
-  let s=String(txt||'').trim();const m=s.match(/```(?:json)?\s*([\s\S]*?)```/);if(m)s=m[1];
-  const a=s.indexOf('{'),b=s.lastIndexOf('}');if(a<0||b<0)throw new Error('не найден JSON');
-  const j=JSON.parse(s.slice(a,b+1));
-  if(!Array.isArray(j.tasks)||!j.tasks.length)throw new Error('нет списка задач tasks');
-  const ids=new Set();
-  const tasks=j.tasks.map((t,i)=>{const id=String(t.id||'t'+(i+1));if(ids.has(id))throw new Error('повтор id '+id);ids.add(id);
-    const lang=MAPL[String(t.lang||'').toLowerCase()]||(t.file?langOf(t.file):'js');
-    if(!t.task)throw new Error('у задачи '+id+' нет поля task');
-    return{id,title:String(t.title||''),role:String(t.role||'coder'),lang,file:String(t.file||id+'.'+EXT[lang]),depends:Array.isArray(t.depends)?t.depends.map(String):[],task:String(t.task),tests:Array.isArray(t.tests)?t.tests.map(x=>typeof x==='string'?x:String(x.code||x)):[],status:'pending',log:[],stage:'',lastError:''}});
-  tasks.forEach(t=>t.depends.forEach(d=>{if(!ids.has(d))throw new Error('задача '+t.id+' зависит от несуществующей '+d)}));
-  topo(tasks);
-  return{id:uid(),assemble:j.assemble&&typeof j.assemble==='object'?j.assemble:null,name:String(j.project||j.name||'Пакет задач'),goal:String(j.goal||''),context:String(j.context||''),tasks,created:Date.now()}}
+let s=String(txt||'').trim();const m=s.match(/```(?:json)?\s*([\s\S]*?)```/);if(m)s=m[1];
+const a=s.indexOf('{'),b=s.lastIndexOf('}');if(a<0||b<0)throw new Error('не найден JSON');
+const j=JSON.parse(s.slice(a,b+1));
+if(!Array.isArray(j.tasks)||!j.tasks.length)throw new Error('нет списка задач tasks');
+const ids=new Set();
+const tasks=j.tasks.map((t,i)=>{const id=String(t.id||'t'+(i+1));if(ids.has(id))throw new Error('повтор id '+id);ids.add(id);
+const lang=MAPL[String(t.lang||'').toLowerCase()]||(t.file?langOf(t.file):'js');
+if(!t.task)throw new Error('у задачи '+id+' нет поля task');
+return{id,title:String(t.title||''),role:String(t.role||'coder'),lang,file:String(t.file||id+'.'+EXT[lang]),depends:Array.isArray(t.depends)?t.depends.map(String):[],task:String(t.task),tests:Array.isArray(t.tests)?t.tests.map(x=>typeof x==='string'?x:String(x.code||x)):[],status:'pending',log:[],stage:'',lastError:'',code:''}});
+tasks.forEach(t=>t.depends.forEach(d=>{if(!ids.has(d))throw new Error('задача '+t.id+' зависит от несуществующей '+d)}));
+topo(tasks);
+return{id:uid(),assemble:j.assemble&&typeof j.assemble==='object'?j.assemble:null,name:String(j.project||j.name||'Пакет задач'),goal:String(j.goal||''),context:String(j.context||''),tasks,created:Date.now()}}
 function addPackage(txt,asNew){
-  const k=parsePackage(txt);let p=!asNew&&UI.projectId&&proj(UI.projectId);if(!p)p=newProject(k.name);
-  (p.packages=p.packages||[]).push(k);touch(p);UI.projectId=p.id;UI.view='projects';render();
-  toast('Пакет «'+k.name+'» добавлен: '+k.tasks.length+' '+plural(k.tasks.length,'задача','задачи','задач'))}
+const k=parsePackage(txt);let p=!asNew&&UI.projectId&&proj(UI.projectId);if(!p)p=newProject(k.name);
+(p.packages=p.packages||[]).push(k);touch(p);UI.projectId=p.id;UI.view='projects';render();
+toast('Пакет «'+k.name+'» добавлен: '+k.tasks.length+' '+plural(k.tasks.length,'задача','задачи','задач'))}
 function pkgSection(p){const ks=p.packages||[];
-  return`<div class="hrow"><h2>Пакеты задач</h2><button class="btn" data-act="pkgFile">Загрузить из файла</button></div>
-  <textarea id="pkgText" class="desc pkgt" placeholder="Или вставьте сюда пакет задач, который подготовил Claude" spellcheck="false" autocapitalize="off" autocorrect="off" aria-label="Текст пакета задач"></textarea>
-  <div class="mpr mt8"><button class="btn" data-act="pkgPaste">Добавить пакет</button></div>${ks.map(k=>pkgCard(p,k)).join('')}`}
+return`<div class="hrow"><h2>Пакеты задач</h2><button class="btn" data-act="pkgFile">Загрузить из файла</button></div>
+<textarea id="pkgText" class="desc pkgt" placeholder="Или вставьте сюда пакет задач, который подготовил Claude" spellcheck="false" autocapitalize="off" autocorrect="off" aria-label="Текст пакета задач"></textarea>
+<div class="mpr mt8"><button class="btn" data-act="pkgPaste">Добавить пакет</button></div>${ks.map(k=>pkgCard(p,k)).join('')}`}
 function pkgCard(p,k){
-  const run=UI.pk&&UI.pk.id===k.id,done=k.tasks.filter(t=>t.status==='done').length,fail=k.tasks.filter(t=>t.status==='failed').length,all=done===k.tasks.length,touched=k.tasks.some(t=>t.status!=='pending');
-  return`<div class="pk"><div class="pkh"><div class="rmain"><div class="rt">${esc(k.name)}</div><div class="rs">Готово ${done} из ${k.tasks.length}${fail?', с ошибками '+fail:''}</div></div>
-  ${run?'<button class="btn pri danger" data-act="pkgStop">Остановить</button>':`${all?'':`<button class="btn pri" data-act="pkgRun" data-id="${k.id}">${done?'Продолжить':'Выполнить'}</button>`}${done?`<button class="btn${all?' pri':''}" data-act="pkgBuild" data-id="${k.id}">Собрать</button>`:''}${touched?`<button class="btn" data-act="pkgReport" data-id="${k.id}">Отчёт для Claude</button>`:''}<button class="btn" data-act="pkgReset" data-id="${k.id}">Сбросить</button><button class="icon-btn" data-act="pkgDel" data-id="${k.id}" aria-label="Удалить пакет">✕</button>`}</div>
-  ${k.goal?'<div class="muted small pkg">'+esc(k.goal)+'</div>':''}
-  <div class="tl">${k.tasks.map(t=>{const key=k.id+':'+t.id;return`<details data-t="${key}" ${UI.openT.has(key)?'open':''}><summary><span class="sti s-${t.status}">${STI[t.status]||'○'}</span><span class="tt"><b>${esc(t.id)}</b> ${esc(t.title||t.task.slice(0,60))}</span><span class="muted small">${t.status==='running'?esc(t.stage||'в работе'):STN[t.status]||''}</span></summary>
-    <div class="td"><div class="muted small">${esc(t.file)}, ${LANGN[t.lang]}${t.depends.length?', зависит от '+esc(t.depends.join(', ')):''}</div><div class="tx">${esc(t.task)}</div>${t.log.length?'<div class="tlog">'+esc(t.log.join('\n'))+'</div>':''}${t.lastError&&t.status==='failed'?'<div class="tlog errt">'+esc(t.lastError)+'</div>':''}${p.files.some(f=>f.name===t.file)?`<button class="btn" data-act="taskOpen" data-id="${key}">Открыть файл</button>`:''}</div></details>`}).join('')}</div></div>`}
+const run=UI.pk&&UI.pk.id===k.id,done=k.tasks.filter(t=>t.status==='done').length,fail=k.tasks.filter(t=>t.status==='failed').length,all=done===k.tasks.length,touched=k.tasks.some(t=>t.status!=='pending');
+return`<div class="pk"><div class="pkh"><div class="rmain"><div class="rt">${esc(k.name)}</div><div class="rs">Готово ${done} из ${k.tasks.length}${fail?', с ошибками '+fail:''}</div></div>
+${run?'<button class="btn pri danger" data-act="pkgStop">Остановить</button>':`${all?'':`<button class="btn pri" data-act="pkgRun" data-id="${k.id}">${done?'Продолжить':'Выполнить'}</button>`}${done?`<button class="btn${all?' pri':''}" data-act="pkgBuild" data-id="${k.id}">Собрать</button>`:''}${touched?`<button class="btn" data-act="pkgReport" data-id="${k.id}">Отчёт для Claude</button>`:''}<button class="btn" data-act="pkgReset" data-id="${k.id}">Сбросить</button><button class="icon-btn" data-act="pkgDel" data-id="${k.id}" aria-label="Удалить пакет">✕</button>`}</div>
+${k.goal?'<div class="muted small pkg">'+esc(k.goal)+'</div>':''}
+<div class="tl">${k.tasks.map(t=>{const key=k.id+':'+t.id;return`<details data-t="${key}" ${UI.openT.has(key)?'open':''}><summary><span class="sti s-${t.status}">${STI[t.status]||'○'}</span><span class="tt"><b>${esc(t.id)}</b> ${esc(t.title||t.task.slice(0,60))}</span><span class="muted small">${t.status==='running'?esc(t.stage||'в работе'):STN[t.status]||''}</span></summary>
+<div class="td"><div class="muted small">${esc(t.file)}, ${LANGN[t.lang]}${t.depends.length?', зависит от '+esc(t.depends.join(', ')):''}</div><div class="tx">${esc(t.task)}</div>${t.log.length?'<div class="tlog">'+esc(t.log.join('\n'))+'</div>':''}${t.lastError&&t.status==='failed'?'<div class="tlog errt">'+esc(t.lastError)+'</div>':''}${p.files.some(f=>f.name===t.file)?`<button class="btn" data-act="taskOpen" data-id="${key}">Открыть файл</button>`:''}</div></details>`}).join('')}</div></div>`}
 function pkgBuild(p,k){
-  let order;try{order=topo(k.tasks)}catch(e){return toast(e.message)}
-  const fs=order.filter(t=>t.status==='done').map(t=>({t,f:p.files.find(f=>f.name===t.file)})).filter(x=>x.f);
-  if(!fs.length)return toast('Нет готовых файлов для сборки');
-  const A=k.assemble||{},base=String(A.name||k.name),run=A.run?String(A.run):'',made=[];
-  const add=(name,fileName,lang,text)=>{const a={id:uid(),name,fileName,lang,text,created:Date.now(),projectId:p.id};S.artifacts.unshift(a);made.push(a)};
-  const js=fs.filter(x=>x.t.lang==='js').map(x=>'// ===== '+x.f.name+' =====\n'+x.f.text).join('\n\n');
-  const py=fs.filter(x=>x.t.lang==='py').map(x=>'# ===== '+x.f.name+' =====\n'+x.f.text).join('\n\n');
-  const hs=fs.filter(x=>x.t.lang==='html'),h=hs.find(x=>x.f.name===A.entry)||hs[hs.length-1];
-  if(h){let page=h.f.text;
-    if(js){const tag='<script>\n'+js.replace(/<\/script/gi,'<\\/script')+'\n<\/script>\n',i=page.search(/<script/i),j=page.search(/<\/body>/i);
-      page=i>=0?page.slice(0,i)+tag+page.slice(i):j>=0?page.slice(0,j)+tag+page.slice(j):page+'\n'+tag}
-    add(base,h.f.name,'html',page)}
-  else if(js)add(base,'bundle.js','js',js+(run&&!py?'\n\n// ===== запуск =====\n'+run:''));
-  if(py)add(base+(made.length?' (Python)':''),'bundle.py','py',py+(run&&!js?'\n\n# ===== запуск =====\n'+run:''));
-  save();UI.view='artifacts';UI.artifactId=made[0].id;UI.artTab='preview';render();
-  toast('Собрано: '+made.length+' '+plural(made.length,'артефакт','артефакта','артефактов'))}
+let order;try{order=topo(k.tasks)}catch(e){return toast(e.message)}
+const fs=order.filter(t=>t.status==='done').map(t=>({t,f:p.files.find(f=>f.name===t.file)})).filter(x=>x.f);
+if(!fs.length)return toast('Нет готовых файлов для сборки');
+const A=k.assemble||{},base=String(A.name||k.name),run=A.run?String(A.run):'',made=[];
+const add=(name,fileName,lang,text)=>{const a={id:uid(),name,fileName,lang,text,created:Date.now(),projectId:p.id};S.artifacts.unshift(a);made.push(a)};
+const js=fs.filter(x=>x.t.lang==='js').map(x=>'// ===== '+x.f.name+' =====\n'+x.f.text).join('\n\n');
+const py=fs.filter(x=>x.t.lang==='py').map(x=>'# ===== '+x.f.name+' =====\n'+x.f.text).join('\n\n');
+const hs=fs.filter(x=>x.t.lang==='html'),h=hs.find(x=>x.f.name===A.entry)||hs[hs.length-1];
+if(h){let page=h.f.text;
+if(js){const tag='<script>\n'+js.replace(/<\/script/gi,'<\\/script')+'\n<\/script>\n',i=page.search(/<script/i),j=page.search(/<\/body>/i);
+page=i>=0?page.slice(0,i)+tag+page.slice(i):j>=0?page.slice(0,j)+tag+page.slice(j):page+'\n'+tag}
+add(base,h.f.name,'html',page)}
+else if(js)add(base,'bundle.js','js',js+(run&&!py?'\n\n// ===== запуск =====\n'+run:''));
+if(py)add(base+(made.length?' (Python)':''),'bundle.py','py',py+(run&&!js?'\n\n# ===== запуск =====\n'+run:''));
+save();UI.view='artifacts';UI.artifactId=made[0].id;UI.artTab='preview';render();
+toast('Собрано: '+made.length+' '+plural(made.length,'артефакт','артефакта','артефактов'))}
 function pkgReport(p,k){
-  const L=['Отчёт «Локальный кодер» '+VERSION,'Пакет: '+k.name,'Модель: '+(LLM.loaded?mlabel():'не запущена'),'Итог: готово '+k.tasks.filter(t=>t.status==='done').length+' из '+k.tasks.length,''];
-  k.tasks.forEach(t=>{L.push(t.id+' «'+(t.title||'')+'» ('+t.file+'): '+(STN[t.status]||t.status));
-    if(t.log.length)L.push('  журнал: '+t.log.join('; '));
-    if(t.status==='failed'){if(t.lastError)L.push('  ошибка: '+t.lastError);const f=p.files.find(f=>f.name===t.file);if(f)L.push('  последний код:\n```'+LN[t.lang]+'\n'+f.text.slice(0,4000)+'\n```')}});
-  const txt=L.join('\n'),fb=()=>download('report-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.txt',txt);
-  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(()=>toast('Отчёт скопирован: вставьте его в чат с Claude'),()=>{fb();toast('Скопировать не удалось, отчёт скачан файлом')});
-  else fb()}
+const L=['Отчёт «Локальный кодер» '+VERSION,'Пакет: '+k.name,'Модель: '+(LLM.loaded?mlabel():'не запущена'),'Итог: готово '+k.tasks.filter(t=>t.status==='done').length+' из '+k.tasks.length,''];
+k.tasks.forEach(t=>{L.push(t.id+' «'+(t.title||'')+'» ('+t.file+'): '+(STN[t.status]||t.status));
+if(t.log.length)L.push(' журнал: '+t.log.join('; '));
+if(t.status==='failed'){if(t.lastError)L.push(' ошибка: '+t.lastError);if(t.code)L.push(' последний код:\n```'+LN[t.lang]+'\n'+t.code.slice(0,4000)+'\n```');else L.push(' последний код: в этом запуске модель код не вернула')}});
+const txt=L.join('\n'),fb=()=>download('report-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.txt',txt);
+if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(()=>toast('Отчёт скопирован: вставьте его в чат с Claude'),()=>{fb();toast('Скопировать не удалось, отчёт скачан файлом')});
+else fb()}
 const rp=p=>{save();if(UI.view==='projects'&&UI.projectId===p.id)render()};
 function depCode(p,k,t){const seen=new Set(),out=[];const walk=id=>{if(seen.has(id))return;seen.add(id);const x=k.tasks.find(y=>y.id===id);if(!x)return;x.depends.forEach(walk);if(x.lang===t.lang&&x.status==='done'){const f=p.files.find(f=>f.name===x.file);if(f)out.push(f.text)}};t.depends.forEach(walk);return out.join('\n\n')}
 function brief(k,t,deps){return(k.goal?'Цель проекта: '+k.goal+'\n':'')+(k.context?'Общие правила:\n'+k.context.slice(0,1000)+'\n':'')+(deps?'\nУже написанный код:\n```'+LN[t.lang]+'\n'+deps.slice(-1500)+'\n```\n':'')+'\nЗадача '+t.id+(t.title?' «'+t.title+'»':'')+', файл '+t.file+':\n'+t.task+(t.tests.length?'\n\nКод должен пройти проверки:\n'+t.tests.join('\n').slice(0,800):'')}
 const coderMsgs=(k,t,deps)=>[{role:'system',content:'Ты Кодер в команде. Пишешь ровно один файл по задаче. Ответ: только один блок кода ```'+LN[t.lang]+' без пояснений до и после. Не добавляй примеры вызова и тесты. Не используй input(), сеть и файлы.'+(deps?' Уже написанный код подключён автоматически: используй его функции и не переписывай их.':'')},{role:'user',content:brief(k,t,deps)}];
 const fixerMsgs=(k,t,deps,code,res)=>[{role:'system',content:'Ты Исправитель в команде. Код не прошёл проверки. Найди причину и верни исправленный файл целиком: только один блок кода ```'+LN[t.lang]+' без пояснений.'+(deps?' Уже написанный код подключён автоматически, не переписывай его.':'')},{role:'user',content:brief(k,t,deps)+'\n\nТекущий код:\n```'+LN[t.lang]+'\n'+code.slice(0,2500)+'\n```\n\nРезультат проверки:\n'+((res&&res.detail)||'неизвестная ошибка').slice(0,1000)}];
+/* 0.4.1: неполный ответ при падении движка выбрасывается; без модели — ошибка DEAD */
 async function llmAsk(messages,retry=true){
-  try{await LLM.engine.resetChat()}catch(e){}
-  let o='';
-  try{const st=await LLM.engine.chat.completions.create({messages,stream:true,temperature:0.2,max_tokens:1500});
-    for await(const ch of st){o+=ch.choices&&ch.choices[0]&&ch.choices[0].delta&&ch.choices[0].delta.content||'';if(UI.pk&&UI.pk.stop)LLM.engine.interruptGenerate()}}
-  catch(e){if(!o){if(retry&&isDead(e)&&await LLM.recover())return llmAsk(messages,false);throw e}}
-  return o}
+if(!LLM.engine){if(retry&&await LLM.recover())return llmAsk(messages,false);throw new Error(DEAD)}
+try{await LLM.engine.resetChat()}catch(e){}
+let o='',cut=false;
+try{const st=await LLM.engine.chat.completions.create({messages,stream:true,temperature:0.2,max_tokens:1500,...GEN});
+for await(const ch of st){o+=ch.choices&&ch.choices[0]&&ch.choices[0].delta&&ch.choices[0].delta.content||'';if(!cut&&((UI.pk&&UI.pk.stop)||looping(o))){cut=true;LLM.engine.interruptGenerate()}}}
+catch(e){if(isDead(e)){if(retry&&await LLM.recover())return llmAsk(messages,false);throw new Error(DEAD)}if(!o)throw e}
+return o}
 function pickCode(a,L){const b=blocksOf(a),m=b.find(x=>MAPL[x.lang]===L)||b[0];if(m)return m.code.trim();const P=a.split('```');if(P.length===2)return P[1].replace(/^\w*\n/,'').trim();return''}
 const jsHarness=T=>'\n;{const __t='+JSON.stringify(T)+',__r=[];const assert=(c,m)=>{if(!c)throw new Error(m||"проверка не пройдена")};for(let __i=0;__i<__t.length;__i++){try{let __v=eval(__t[__i]);if(__v&&typeof __v.then==="function")__v=await __v;if(__v===false)throw new Error("вернуло false");__r.push({i:__i,ok:1})}catch(__e){__r.push({i:__i,ok:0,e:String(__e&&__e.message||__e)})}}console.log("__LKT__"+JSON.stringify(__r))}';
-const pyHarness=T=>'\nimport json as __j\n__t=__j.loads('+JSON.stringify(JSON.stringify(T))+')\n__r=[]\nfor __i,__s in enumerate(__t):\n    try:\n        try:\n            __v=eval(__s)\n        except SyntaxError:\n            exec(__s)\n            __v=None\n        if __v is False:\n            raise AssertionError("вернуло False")\n        __r.append({"i":__i,"ok":1})\n    except Exception as __e:\n        __r.append({"i":__i,"ok":0,"e":repr(__e)})\nprint("__LKT__"+__j.dumps(__r))\n';
+const pyHarness=T=>'\nimport json as __j\n__t=__j.loads('+JSON.stringify(JSON.stringify(T))+')\n__r=[]\nfor __i,__s in enumerate(__t):\n try:\n  try:\n   __v=eval(__s)\n  except SyntaxError:\n   exec(__s)\n   __v=None\n  if __v is False:\n   raise AssertionError("вернуло False")\n  __r.append({"i":__i,"ok":1})\n except Exception as __e:\n  __r.append({"i":__i,"ok":0,"e":repr(__e)})\nprint("__LKT__"+__j.dumps(__r))\n';
 async function testCode(t,code,deps){
-  if(t.lang==='html'){const ok=/<[a-z]/i.test(code);return{ok,summary:ok?'HTML получен, проверьте его в просмотре':'нет HTML-разметки',detail:ok?'':'В ответе нет HTML-разметки'}}
-  const lines=[],sink=(ty,s)=>lines.push({t:ty,s:String(s)});
-  const src=(deps?deps+'\n':'')+code+'\n'+(t.lang==='py'?pyHarness(t.tests):jsHarness(t.tests));
-  if(t.lang==='py')await runPy(src,sink,true);else await runJS(src,sink);
-  const mk=lines.find(l=>l.s.startsWith('__LKT__')),errs=lines.filter(l=>l.t==='err').map(l=>l.s).join('\n');
-  if(!mk)return{ok:false,summary:'ошибка выполнения',detail:(errs||'код не выполнился до проверок').slice(0,1000)};
-  let r;try{r=JSON.parse(mk.s.slice(7))}catch(e){return{ok:false,summary:'ошибка проверки',detail:'не удалось прочитать результат'}}
-  const pass=r.filter(x=>x.ok).length,fails=r.filter(x=>!x.ok).map(x=>'Проверка «'+t.tests[x.i]+'»: '+x.e).join('\n');
-  return{ok:pass===r.length,summary:r.length?'пройдено '+pass+' из '+r.length:'код выполнился без ошибок',detail:(fails||errs).slice(0,1000)}}
+if(t.lang==='html'){const ok=/<[a-z]/i.test(code);return{ok,summary:ok?'HTML получен, проверьте его в просмотре':'нет HTML-разметки',detail:ok?'':'В ответе нет HTML-разметки'}}
+const lines=[],sink=(ty,s)=>lines.push({t:ty,s:String(s)});
+const src=(deps?deps+'\n':'')+code+'\n'+(t.lang==='py'?pyHarness(t.tests):jsHarness(t.tests));
+if(t.lang==='py')await runPy(src,sink,true);else await runJS(src,sink);
+const mk=lines.find(l=>l.s.startsWith('__LKT__')),errs=lines.filter(l=>l.t==='err').map(l=>l.s).join('\n');
+if(!mk)return{ok:false,summary:'ошибка выполнения',detail:(errs||'код не выполнился до проверок').slice(0,1000)};
+let r;try{r=JSON.parse(mk.s.slice(7))}catch(e){return{ok:false,summary:'ошибка проверки',detail:'не удалось прочитать результат'}}
+const pass=r.filter(x=>x.ok).length,fails=r.filter(x=>!x.ok).map(x=>'Проверка «'+t.tests[x.i]+'»: '+x.e).join('\n');
+return{ok:pass===r.length,summary:r.length?'пройдено '+pass+' из '+r.length:'код выполнился без ошибок',detail:(fails||errs).slice(0,1000)}}
 function upsertFile(p,name,text){const f=p.files.find(f=>f.name===name);if(f)f.text=text;else p.files.push({id:uid(),name,text})}
 async function runTask(p,k,t){
-  t.status='running';t.log=[];t.lastError='';
-  const deps=depCode(p,k,t);let code='',res=null;
-  for(let a=1;a<=3;a++){
-    if(UI.pk.stop)break;
-    const who=a===1?'Кодер':'Исправитель';t.stage=a===1?'Кодер пишет код':'Исправитель, попытка '+(a-1);rp(p);
-    let ans;try{ans=await llmAsk(a===1||!code?coderMsgs(k,t,deps):fixerMsgs(k,t,deps,code,res))}catch(e){t.log.push('Ошибка модели: '+(e&&e.message||e));res={ok:false,detail:'Ошибка модели'};break}
-    if(UI.pk.stop)break;
-    const c=pickCode(ans,t.lang);
-    if(!c){t.log.push(who+': в ответе нет кода');res={ok:false,detail:'Ответ модели не содержит блока кода'};continue}
-    code=c;t.log.push(who+': '+code.split('\n').length+' строк');
-    t.stage='Тестировщик проверяет';rp(p);
-    res=await testCode(t,code,deps);t.log.push('Тестировщик: '+res.summary);
-    if(res.ok)break}
-  if(code)upsertFile(p,t.file,code);
-  if(UI.pk.stop&&!(res&&res.ok)){t.status='pending';t.stage='';t.log.push('Остановлено');rp(p);return}
-  t.status=res&&res.ok?'done':'failed';t.stage='';if(t.status==='failed')t.lastError=res?res.detail:'';touch(p);rp(p)}
+t.status='running';t.log=[];t.lastError='';t.code='';
+const deps=depCode(p,k,t);let code='',res=null;
+for(let a=1;a<=3;a++){
+if(UI.pk.stop)break;
+const who=a===1?'Кодер':'Исправитель';t.stage=a===1?'Кодер пишет код':'Исправитель, попытка '+(a-1);rp(p);
+let ans;try{ans=await llmAsk(a===1||!code?coderMsgs(k,t,deps):fixerMsgs(k,t,deps,code,res))}catch(e){const em=String(e&&e.message||e);t.log.push('Ошибка модели: '+em);res={ok:false,detail:'Ошибка модели: '+em};if(em===DEAD||isDead(e)){UI.pk.stop=true;UI.pk.dead=true}break}
+if(UI.pk.stop)break;
+const c=pickCode(ans,t.lang);
+if(!c){t.log.push(who+': в ответе нет кода');res={ok:false,detail:'Ответ модели не содержит блока кода'};continue}
+code=c;t.code=code;t.log.push(who+': '+code.split('\n').length+' строк'+(looping(ans)?' (обнаружено зацикливание, ответ оборван)':''));
+t.stage='Тестировщик проверяет';rp(p);
+res=await testCode(t,code,deps);t.log.push('Тестировщик: '+res.summary);
+if(res.ok)break}
+if(code)upsertFile(p,t.file,code);
+if(UI.pk.stop&&!(res&&res.ok)){t.status='pending';t.stage='';t.log.push(UI.pk.dead?'Остановлено: модель выгружена':'Остановлено');rp(p);return}
+t.status=res&&res.ok?'done':'failed';t.stage='';if(t.status==='failed')t.lastError=res?res.detail:'';touch(p);rp(p)}
 async function runPackage(p,k){
-  if(UI.pk)return toast('Уже выполняется другой пакет');
-  if(UI.gen)return toast('Дождитесь окончания ответа в чате');
-  if(LLM.state!=='ready'){toast('Сначала запустите модель в разделе «Чаты»');return}
-  let order;try{order=topo(k.tasks)}catch(e){return toast('Ошибка пакета: '+e.message)}
-  UI.pk={id:k.id,stop:false};
-  try{if(navigator.wakeLock)UI.wl=await navigator.wakeLock.request('screen')}catch(e){}
-  k.tasks.forEach(t=>{if(t.status!=='done'){t.status='pending';t.stage=''}});rp(p);
-  for(const t of order){
-    if(UI.pk.stop)break;if(t.status==='done')continue;
-    const bad=t.depends.find(d=>{const x=k.tasks.find(y=>y.id===d);return!x||x.status!=='done'});
-    if(bad){t.status='skipped';t.log=['Пропущено: зависимость '+bad+' не выполнена'];rp(p);continue}
-    await runTask(p,k,t)}
-  const stopped=UI.pk.stop;UI.pk=null;
-  try{if(UI.wl)await UI.wl.release()}catch(e){}UI.wl=null;
-  touch(p);rp(p);
-  const done=k.tasks.filter(t=>t.status==='done').length;
-  toast(stopped?'Выполнение остановлено':'Пакет выполнен: готово '+done+' из '+k.tasks.length)}
-
+if(UI.pk)return toast('Уже выполняется другой пакет');
+if(UI.gen)return toast('Дождитесь окончания ответа в чате');
+if(LLM.state!=='ready'||!LLM.engine){toast('Сначала запустите модель в разделе «Чаты»');return}
+let order;try{order=topo(k.tasks)}catch(e){return toast('Ошибка пакета: '+e.message)}
+UI.pk={id:k.id,stop:false,dead:false};
+try{if(navigator.wakeLock)UI.wl=await navigator.wakeLock.request('screen')}catch(e){}
+k.tasks.forEach(t=>{if(t.status!=='done'){t.status='pending';t.stage=''}});rp(p);
+for(const t of order){
+if(UI.pk.stop)break;if(t.status==='done')continue;
+const bad=t.depends.find(d=>{const x=k.tasks.find(y=>y.id===d);return!x||x.status!=='done'});
+if(bad){t.status='skipped';t.log=['Пропущено: зависимость '+bad+' не выполнена'];rp(p);continue}
+await runTask(p,k,t)}
+const stopped=UI.pk.stop,dead=UI.pk.dead;UI.pk=null;
+try{if(UI.wl)await UI.wl.release()}catch(e){}UI.wl=null;
+touch(p);rp(p);
+const done=k.tasks.filter(t=>t.status==='done').length;
+toast(dead?'Модель выгружена системой. Запустите её в «Чатах» и нажмите «Продолжить»':stopped?'Выполнение остановлено':'Пакет выполнен: готово '+done+' из '+k.tasks.length)}
 $('#pkgInput').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{addPackage(await f.text(),UI.pkgNew)}catch(err){toast('Пакет не принят: '+err.message)}UI.pkgNew=false};
-
 /* Резервная копия */
 $('#bkExport').onclick=()=>{download('local-coder-backup-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({app:'local-coder',version:VERSION,data:S},null,1),'application/json')};
 $('#bkImport').onclick=()=>$('#bkFile').click();
 $('#bkFile').onchange=async e=>{
-  const f=e.target.files[0];e.target.value='';if(!f)return;
-  try{const j=JSON.parse(await f.text()),d=j.data||j;if(!Array.isArray(d.projects))throw 0;
-    if(!confirm('Заменить текущие данные резервной копией?'))return;
-    S=normalize(d);await flush();UI.projectId=UI.artifactId=null;render();toast('Данные восстановлены')}
-  catch(err){toast('Файл не похож на резервную копию этого приложения')}};
-
+const f=e.target.files[0];e.target.value='';if(!f)return;
+try{const j=JSON.parse(await f.text()),d=j.data||j;if(!Array.isArray(d.projects))throw 0;
+if(!confirm('Заменить текущие данные резервной копией?'))return;
+S=normalize(d);await flush();UI.projectId=UI.artifactId=null;render();toast('Данные восстановлены')}
+catch(err){toast('Файл не похож на резервную копию этого приложения')}};
 /* Старт */
 (async()=>{
-  const verLbl=()=>{$('#ver').textContent=VERSION+(navigator.serviceWorker&&navigator.serviceWorker.controller?' · офлайн готов':'')};verLbl();
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.addEventListener('controllerchange',verLbl);
-    navigator.serviceWorker.register('./sw.js').catch(()=>{});
-    try{caches.open('lk-v1').then(c=>c.put(new URL('lk-py-worker.js',location.href),new Response(PY_WORKER,{headers:{'Content-Type':'text/javascript; charset=utf-8'}}))).then(()=>{UI.pyCached=true},()=>{})}catch(e){}}
-  await DB.open();
-  if(!DB.db)toast('Хранилище браузера недоступно: данные не сохранятся');
-  const d=await DB.get('state');if(d)S=normalize(d);
-  S.projects.forEach(p=>(p.packages||[]).forEach(k=>k.tasks.forEach(t=>{if(t.status==='running'){t.status='pending';t.stage=''}})));
-  try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
-  render()})();
+const verLbl=()=>{$('#ver').textContent=VERSION+(navigator.serviceWorker&&navigator.serviceWorker.controller?' · офлайн готов':'')};verLbl();
+if('serviceWorker' in navigator){
+navigator.serviceWorker.addEventListener('controllerchange',verLbl);
+navigator.serviceWorker.register('./sw.js').catch(()=>{});
+try{caches.open('lk-v1').then(c=>c.put(new URL('lk-py-worker.js',location.href),new Response(PY_WORKER,{headers:{'Content-Type':'text/javascript; charset=utf-8'}}))).then(()=>{UI.pyCached=true},()=>{})}catch(e){}}
+await DB.open();
+if(!DB.db)toast('Хранилище браузера недоступно: данные не сохранятся');
+const d=await DB.get('state');if(d)S=normalize(d);
+S.projects.forEach(p=>(p.packages||[]).forEach(k=>k.tasks.forEach(t=>{if(t.status==='running'){t.status='pending';t.stage=''}})));
+try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
+render()})();
 </script>
 </body>
 </html>
