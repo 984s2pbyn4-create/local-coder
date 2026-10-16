@@ -155,7 +155,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 </div>
 <div class="toast" id="toast" role="status"></div>
 <script>
-const VERSION='0.4.1';
+const VERSION='0.4.2';
 const $=s=>document.querySelector(s);
 const V=()=>$('#view');
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -498,10 +498,36 @@ const LN={js:'javascript',py:'python',html:'html'};
 const STI={pending:'○',running:'◐',done:'✓',failed:'✕',skipped:'–'};
 const STN={pending:'ожидает',done:'готово',failed:'не прошло проверки',skipped:'пропущено'};
 function topo(ts){const r=[],st={};const v=t=>{if(st[t.id]===2)return;if(st[t.id]===1)throw new Error('циклическая зависимость у задачи '+t.id);st[t.id]=1;t.depends.forEach(d=>{const x=ts.find(y=>y.id===d);if(x)v(x)});st[t.id]=2;r.push(t)};ts.forEach(v);return r}
+/* 0.4.2: починка JSON, испорченного копированием на iPad */
+const nxt=(s,j)=>{while(j<s.length&&/\s/.test(s[j]))j++;return j};
+function endsStr(s,j){const n=s[j];if(n===undefined||n===':')return true;const k=nxt(s,j+1),m=s[k];
+if(n===',')return m==='"'||'\u201C\u201D\u201E{['.includes(m)||(m!==undefined&&/\n/.test(s.slice(j+1,k)));
+if(n==='}'||n===']')return m===undefined||',}]'.includes(m);return false}
+function repairJSON(s){
+let o='',inS=false,smart=false;const SQ='\u201C\u201D\u201E';
+for(let i=0;i<s.length;i++){const c=s[i];
+if(!inS){
+if(c==='"'||SQ.includes(c)){inS=true;smart=c!=='"';o+='"';continue}
+if(c==='\u00A0'||c==='\u200B'||c==='\uFEFF'){o+=' ';continue}
+if(c===','){let j=i+1;while(j<s.length&&/\s/.test(s[j]))j++;if(s[j]==='}'||s[j]===']')continue}
+o+=c;continue}
+if(c==='\\'){const n=s[i+1];
+if(n!==undefined&&'"\\/bfnrt'.includes(n)){o+=c+n;i++;continue}
+if(n==='u'&&/^[0-9a-fA-F]{4}$/.test(s.substr(i+2,4))){o+=s.substr(i,6);i+=5;continue}
+o+='\\\\';continue}
+if(c==='"'||(smart&&SQ.includes(c))){let j=i+1;while(j<s.length&&/\s/.test(s[j]))j++;const n=s[j];
+if(endsStr(s,j)){inS=false;o+='"';continue}
+o+='\\"';continue}
+if(c==='\n'){o+='\\n';continue}
+if(c==='\r')continue;
+if(c==='\t'){o+='\\t';continue}
+o+=c}
+return o}
 function parsePackage(txt){
 let s=String(txt||'').trim();const m=s.match(/```(?:json)?\s*([\s\S]*?)```/);if(m)s=m[1];
 const a=s.indexOf('{'),b=s.lastIndexOf('}');if(a<0||b<0)throw new Error('не найден JSON');
-const j=JSON.parse(s.slice(a,b+1));
+let j,repaired=false;const raw=s.slice(a,b+1);
+try{j=JSON.parse(raw)}catch(e1){try{j=JSON.parse(repairJSON(raw));repaired=true}catch(e2){throw new Error(e1.message+'. Починить не удалось: возможно, текст скопирован не полностью. Загрузите пакет файлом')}}
 if(!Array.isArray(j.tasks)||!j.tasks.length)throw new Error('нет списка задач tasks');
 const ids=new Set();
 const tasks=j.tasks.map((t,i)=>{const id=String(t.id||'t'+(i+1));if(ids.has(id))throw new Error('повтор id '+id);ids.add(id);
@@ -510,11 +536,11 @@ if(!t.task)throw new Error('у задачи '+id+' нет поля task');
 return{id,title:String(t.title||''),role:String(t.role||'coder'),lang,file:String(t.file||id+'.'+EXT[lang]),depends:Array.isArray(t.depends)?t.depends.map(String):[],task:String(t.task),tests:Array.isArray(t.tests)?t.tests.map(x=>typeof x==='string'?x:String(x.code||x)):[],status:'pending',log:[],stage:'',lastError:'',code:''}});
 tasks.forEach(t=>t.depends.forEach(d=>{if(!ids.has(d))throw new Error('задача '+t.id+' зависит от несуществующей '+d)}));
 topo(tasks);
-return{id:uid(),assemble:j.assemble&&typeof j.assemble==='object'?j.assemble:null,name:String(j.project||j.name||'Пакет задач'),goal:String(j.goal||''),context:String(j.context||''),tasks,created:Date.now()}}
+return{id:uid(),assemble:j.assemble&&typeof j.assemble==='object'?j.assemble:null,name:String(j.project||j.name||'Пакет задач'),goal:String(j.goal||''),context:String(j.context||''),tasks,created:Date.now(),repaired}}
 function addPackage(txt,asNew){
 const k=parsePackage(txt);let p=!asNew&&UI.projectId&&proj(UI.projectId);if(!p)p=newProject(k.name);
 (p.packages=p.packages||[]).push(k);touch(p);UI.projectId=p.id;UI.view='projects';render();
-toast('Пакет «'+k.name+'» добавлен: '+k.tasks.length+' '+plural(k.tasks.length,'задача','задачи','задач'))}
+toast('Пакет «'+k.name+'» добавлен: '+k.tasks.length+' '+plural(k.tasks.length,'задача','задачи','задач')+(k.repaired?'. Исправлены повреждения после копирования':''))}
 function pkgSection(p){const ks=p.packages||[];
 return`<div class="hrow"><h2>Пакеты задач</h2><button class="btn" data-act="pkgFile">Загрузить из файла</button></div>
 <textarea id="pkgText" class="desc pkgt" placeholder="Или вставьте сюда пакет задач, который подготовил Claude" spellcheck="false" autocapitalize="off" autocorrect="off" aria-label="Текст пакета задач"></textarea>
