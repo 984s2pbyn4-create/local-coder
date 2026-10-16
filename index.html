@@ -155,7 +155,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 </div>
 <div class="toast" id="toast" role="status"></div>
 <script>
-const VERSION='0.3.0';
+const VERSION='0.3.2';
 const $=s=>document.querySelector(s);
 const V=()=>$('#view');
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -241,11 +241,18 @@ async load(id){
   if(!id||this.state==='loading')return;
   this.state='loading';this.progress=0;this.text='';rc();
   try{const cb=r=>{this.progress=r.progress||0;this.text=r.text||'';updProg()};
-    if(this.engine){if(this.engine.setInitProgressCallback)this.engine.setInitProgressCallback(cb);await this.engine.reload(id)}
-    else this.engine=await this.lib.CreateMLCEngine(id,{initProgressCallback:cb});
+    if(this.engine){const old=this.engine;this.engine=null;try{await old.unload()}catch(e){}}
+    this.engine=await this.lib.CreateMLCEngine(id,{initProgressCallback:cb});
     this.loaded=id;this.state='ready';S.settings.model=id;save();toast('Модель готова')}
-  catch(e){this.state='error';this.err='Ошибка загрузки: '+(e&&e.message||e)+'. Попробуйте модель поменьше.';this.loaded=''}
+  catch(e){this.engine=null;this.state='error';this.err='Ошибка загрузки: '+(e&&e.message||e)+'. Обновите страницу и попробуйте снова; если ошибка повторится, выберите модель поменьше.';this.loaded=''}
   rc()}};
+const isDead=e=>/disposed|lost|destroyed|GPUDevice/i.test(String(e&&e.message||e));
+LLM.recover=function(){
+  if(this.rec)return this.rec;
+  const id=this.loaded||S.settings.model||this.def;
+  toast('Система выгрузила модель, перезапускаю');
+  this.rec=(async()=>{this.state='idle';await this.load(id);this.rec=null;return this.state==='ready'})();
+  return this.rec};
 const mlabel=()=>(LLM.models.find(m=>m.id===LLM.loaded)||{label:LLM.loaded}).label;
 function updProg(){const p=Math.round(LLM.progress*100),a=$('#mpct'),b=$('#mbar'),t=$('#mtxt');if(a)a.textContent=p+'%';if(b)b.style.width=p+'%';if(t)t.textContent=LLM.text}
 function modelPanel(){
@@ -295,9 +302,10 @@ async function send(c,text){
   if(c.title==='Новый чат')c.title=text.replace(/\s+/g,' ').slice(0,48);
   c.updated=Date.now();UI.gen=true;save();if(UI.view==='chats'&&UI.chatId===c.id)render();
   let raf=0;const upd=()=>{raf=0;const el=$('#lastMsg');if(el&&UI.view==='chats'&&UI.chatId===c.id){el.innerHTML=md(m.content,c.msgs.length-1);const ms=$('#msgs');if(ms&&ms.scrollHeight-ms.scrollTop-ms.clientHeight<160)ms.scrollTop=ms.scrollHeight}};
+  for(let at=0;at<2;at++){
   try{try{await LLM.engine.resetChat()}catch(e){}const st=await LLM.engine.chat.completions.create({messages:ctx(c),stream:true,temperature:0.3,max_tokens:1200});
-    for await(const ch of st){const d=ch.choices&&ch.choices[0]&&ch.choices[0].delta&&ch.choices[0].delta.content||'';if(d){m.content+=d;if(!raf)raf=requestAnimationFrame(upd)}}}
-  catch(e){const em=String(e&&e.message||e);if(!m.content.trim()||!/disposed/i.test(em))m.content+='\n\n[Ошибка: '+em+']'}
+    for await(const ch of st){const d=ch.choices&&ch.choices[0]&&ch.choices[0].delta&&ch.choices[0].delta.content||'';if(d){m.content+=d;if(!raf)raf=requestAnimationFrame(upd)}}break}
+  catch(e){const em=String(e&&e.message||e);if(!m.content.trim()&&at===0&&isDead(e)&&await LLM.recover())continue;if(!m.content.trim()||!isDead(e))m.content+='\n\n[Ошибка: '+em+']';break}}
   if(!m.content.trim())m.content='[Пустой ответ]';
   UI.gen=false;c.updated=Date.now();save();if(UI.view==='chats'&&UI.chatId===c.id)render()}
 function blockToEditor(id,runIt){
@@ -534,12 +542,12 @@ function depCode(p,k,t){const seen=new Set(),out=[];const walk=id=>{if(seen.has(
 function brief(k,t,deps){return(k.goal?'Цель проекта: '+k.goal+'\n':'')+(k.context?'Общие правила:\n'+k.context.slice(0,1000)+'\n':'')+(deps?'\nУже написанный код:\n```'+LN[t.lang]+'\n'+deps.slice(-1500)+'\n```\n':'')+'\nЗадача '+t.id+(t.title?' «'+t.title+'»':'')+', файл '+t.file+':\n'+t.task+(t.tests.length?'\n\nКод должен пройти проверки:\n'+t.tests.join('\n').slice(0,800):'')}
 const coderMsgs=(k,t,deps)=>[{role:'system',content:'Ты Кодер в команде. Пишешь ровно один файл по задаче. Ответ: только один блок кода ```'+LN[t.lang]+' без пояснений до и после. Не добавляй примеры вызова и тесты. Не используй input(), сеть и файлы.'+(deps?' Уже написанный код подключён автоматически: используй его функции и не переписывай их.':'')},{role:'user',content:brief(k,t,deps)}];
 const fixerMsgs=(k,t,deps,code,res)=>[{role:'system',content:'Ты Исправитель в команде. Код не прошёл проверки. Найди причину и верни исправленный файл целиком: только один блок кода ```'+LN[t.lang]+' без пояснений.'+(deps?' Уже написанный код подключён автоматически, не переписывай его.':'')},{role:'user',content:brief(k,t,deps)+'\n\nТекущий код:\n```'+LN[t.lang]+'\n'+code.slice(0,2500)+'\n```\n\nРезультат проверки:\n'+((res&&res.detail)||'неизвестная ошибка').slice(0,1000)}];
-async function llmAsk(messages){
+async function llmAsk(messages,retry=true){
   try{await LLM.engine.resetChat()}catch(e){}
   let o='';
   try{const st=await LLM.engine.chat.completions.create({messages,stream:true,temperature:0.2,max_tokens:1500});
     for await(const ch of st){o+=ch.choices&&ch.choices[0]&&ch.choices[0].delta&&ch.choices[0].delta.content||'';if(UI.pk&&UI.pk.stop)LLM.engine.interruptGenerate()}}
-  catch(e){if(!o)throw e}
+  catch(e){if(!o){if(retry&&isDead(e)&&await LLM.recover())return llmAsk(messages,false);throw e}}
   return o}
 function pickCode(a,L){const b=blocksOf(a),m=b.find(x=>MAPL[x.lang]===L)||b[0];if(m)return m.code.trim();const P=a.split('```');if(P.length===2)return P[1].replace(/^\w*\n/,'').trim();return''}
 const jsHarness=T=>'\n;{const __t='+JSON.stringify(T)+',__r=[];const assert=(c,m)=>{if(!c)throw new Error(m||"проверка не пройдена")};for(let __i=0;__i<__t.length;__i++){try{let __v=eval(__t[__i]);if(__v&&typeof __v.then==="function")__v=await __v;if(__v===false)throw new Error("вернуло false");__r.push({i:__i,ok:1})}catch(__e){__r.push({i:__i,ok:0,e:String(__e&&__e.message||__e)})}}console.log("__LKT__"+JSON.stringify(__r))}';
